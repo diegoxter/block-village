@@ -34,25 +34,15 @@
 ;; data maps
 (define-map campaigns { id: uint } { begins: uint, ends: uint })
 (define-map player-assets { player: principal } {
-    resources: {
-        wood: int,
-        rock: int,
-        food: int,
-        gold: int,
-        metal: int
-    },
+    resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
     town: {
-        hit-points: int,
-        walls: int,
-        soldiers: int,
+        defenses: (list 2 int), ;; hit-points / walls
+        army: (list 3 int), ;; soldiers / archers / cavalry
     }
 })
-(define-map pawns-mining-resources-per-player { player: principal } {
-    wood: int,
-    rock: int,
-    food: int,
-    gold: int,
+(define-map pawns-occupied-per-player { player: principal } {
+    resources: (list 4 int)
 })
 ;;
 
@@ -94,18 +84,10 @@
         (asserts! (> assigned-pawns 0) err-invalid-assigned-pawn-amount)
         (try! (check-can-gather assigned-pawns))
 
-        (if (is-eq resource-to-gather u0) ;; wood
-           (assign-pawns-to-cut-wood assigned-pawns)
-            (if (is-eq resource-to-gather u1) ;; rock
-                (assign-pawns-to-mine-rock assigned-pawns)
-                (if (is-eq resource-to-gather u2) ;; food
-                    (assign-pawns-to-hunt-food assigned-pawns)
-                    (if (is-eq resource-to-gather u3) ;; gold
-                        (assign-pawns-to-mine-gold assigned-pawns)
-                        false ;; default case
-                    )
-                )
-            )
+        (map-set pawns-occupied-per-player {player: tx-sender}
+            (merge player-mining-pawns {
+                resources: (unwrap-panic (replace-at? (get resources player-mining-pawns) resource-to-gather assigned-pawns))
+            })
         )
 
         (ok true)
@@ -122,18 +104,11 @@
 
 (define-read-only (get-player (player principal))
     (default-to {
-        resources: {
-            wood: 50,
-            rock: 50,
-            food: 50,
-            gold: 50,
-            metal: 50
-        },
+        resources: (list 50 50 50 50 50), ;; wood rock food gold metal
         pawns: 100,
         town: {
-            hit-points: 20,
-            walls: 20,
-            soldiers: 0
+            defenses: (list 20 20), ;; hit-points / walls
+            army: (list 0 0 0) ;; soldiers / archers / cavalry
         }
     }
         (map-get? player-assets {player: player})
@@ -142,12 +117,9 @@
 
 (define-read-only (get-mining-pawns-per-player (player principal))
     (default-to {
-            wood: 0,
-            rock: 0,
-            food: 0,
-            gold: 0
-        }
-        (map-get? pawns-mining-resources-per-player {player: player})
+        resources: (list 0 0 0 0)
+    }
+        (map-get? pawns-occupied-per-player {player: player})
     )
 )
 ;;
@@ -179,46 +151,6 @@
         )
 
         (ok true)
-    )
-)
-
-(define-private (assign-pawns-to-cut-wood (assigned-pawns int))
-    (let ((player-mining-pawns (get-mining-pawns-per-player tx-sender)))
-        (map-set pawns-mining-resources-per-player {player: tx-sender}
-            (merge player-mining-pawns {
-                wood: (+ (get wood player-mining-pawns) assigned-pawns)
-            })
-        )
-    )
-)
-
-(define-private (assign-pawns-to-mine-rock (assigned-pawns int))
-    (let ((player-mining-pawns (get-mining-pawns-per-player tx-sender)))
-        (map-set pawns-mining-resources-per-player {player: tx-sender}
-            (merge player-mining-pawns {
-                rock: (+ (get rock player-mining-pawns) assigned-pawns)
-            })
-        )
-    )
-)
-
-(define-private (assign-pawns-to-mine-gold (assigned-pawns int))
-    (let ((player-mining-pawns (get-mining-pawns-per-player tx-sender)))
-        (map-set pawns-mining-resources-per-player {player: tx-sender}
-            (merge player-mining-pawns {
-                gold: (+ (get gold player-mining-pawns) assigned-pawns)
-            })
-        )
-    )
-)
-
-(define-private (assign-pawns-to-hunt-food (assigned-pawns int))
-    (let ((player-mining-pawns (get-mining-pawns-per-player tx-sender)))
-        (map-set pawns-mining-resources-per-player {player: tx-sender}
-            (merge player-mining-pawns {
-                food: (+ (get food player-mining-pawns) assigned-pawns)
-            })
-        )
     )
 )
 ;;
