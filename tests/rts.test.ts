@@ -1,6 +1,6 @@
 
 import { describe, expect, it } from "vitest";
-import { Cl } from "@stacks/transactions";
+import { Cl, IntCV } from "@stacks/transactions";
 
 interface Addresses {
   [key: string]: string
@@ -19,7 +19,11 @@ const returnAddresses = () => {
   return addresses
 }
 
-const {address1, address2, } = returnAddresses()
+const { address1, address2 } = returnAddresses()
+
+const returnCampaignResources: ()=> Array<IntCV> = () => {
+  return Array(4).fill(Cl.int(2000));
+}
 
 /*
   The test below is an example. To learn more, read the testing documentation here:
@@ -28,7 +32,8 @@ const {address1, address2, } = returnAddresses()
 
 describe("campaigns", () => {
   it("ensures they are well initalised", () => {
-    const campaignResponse = simnet.callPublicFn('rts','create-campaign', [], address1)
+
+    const campaignResponse = simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
     expect(campaignResponse.result).toBeOk(Cl.bool(true));
 
     const printEvent = campaignResponse.events[0]
@@ -40,25 +45,38 @@ describe("campaigns", () => {
     });
   });
 
-  it("does not allow fow two simultaneous campaigns", () => {
-    simnet.callPublicFn('rts','create-campaign', [], address1)
+  it("does not allow for two simultaneous campaigns", () => {
+    simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
 
-    const thisFails = simnet.callPublicFn('rts','create-campaign', [], address1)
+    const thisFails = simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
     expect(thisFails.result).toBeErr(Cl.uint(1));
 
-    const campaignDuration = simnet.getDataVar('rts', 'campaing-duration')
+    const campaignDuration: any = simnet.getDataVar('rts', 'campaing-duration')
     simnet.mineEmptyBlocks(oneDayInBlocks * (Number(campaignDuration.value) + 1))
 
-    const thisDoesntFail = simnet.callPublicFn('rts','create-campaign', [], address1)
+    const thisDoesntFail = simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
     expect(thisDoesntFail.result).toBeOk(Cl.bool(true));
 
-    const thisFailsToo = simnet.callPublicFn('rts','create-campaign', [], address1)
+    const thisFailsToo = simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
     expect(thisFailsToo.result).toBeErr(Cl.uint(1));
+  })
+
+  it("does not allow campaigns with 0 resources", () => {
+    const zeroIntList = returnCampaignResources()
+
+    for (let index = 0; index < 3; index++) {
+      zeroIntList[index] = Cl.int(0);
+
+      const thisFails = simnet.callPublicFn('rts','create-campaign', [Cl.list(zeroIntList)], address1)
+
+      expect(thisFails.result).toBeErr(Cl.uint(3));
+    }
+
   })
 
   describe("allow gathering resources", () => {
     it("respecting pawn limit", ()=> {
-      simnet.callPublicFn('rts','create-campaign', [], address1)
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
       const miningArray = [Cl.int(0), Cl.int(0), Cl.int(0), Cl.int(0)]
       let playerPawnsStateTracker = 100
 

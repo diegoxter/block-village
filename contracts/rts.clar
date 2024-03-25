@@ -14,6 +14,7 @@
 (define-constant err-invalid-campaign (err u0))
 (define-constant err-unended-previous-campaign (err u1))
 (define-constant err-no-active-campaign (err u2))
+(define-constant err-invalid-new-campaign-resources (err u3))
 
 
 (define-constant err-invalid-player (err u20))
@@ -32,7 +33,10 @@
 
 
 ;; data maps
-(define-map campaigns { id: uint } { begins: uint, ends: uint })
+(define-map campaigns { id: uint } {
+    begins: uint,
+    map-resources: (list 4 int), ;; wood / rock / food / gold
+    ends: uint })
 (define-map player-assets { player: principal } {
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
@@ -42,18 +46,19 @@
     }
 })
 (define-map pawns-occupied-per-player { player: principal } {
-    resources: (list 4 int)
+    resources: (list 4 int),  ;; these can be gathering wood / rock / food / gold
 })
 ;;
 
 (map-set campaigns {id: u0} { ;; empty campaign
     begins: u0,
+    map-resources: (list 0 0 0 0),
     ends: u0
 })
 
 
 ;; public functions
-(define-public (create-campaign)
+(define-public (create-campaign (map-resources (list 4 int)))
     (begin
         (asserts!
             (>=
@@ -62,15 +67,22 @@
             )
             err-unended-previous-campaign
         )
+        (asserts!
+            (fold and
+            (map more-than-zero map-resources) true) err-invalid-new-campaign-resources
+        )
+        (asserts! (is-eq (len map-resources) u4) (err u5))
 
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
             begins: (+ (get-current-time) u86400),
+            map-resources: map-resources,
             ends: (+ (get-current-time) (* u86400 (var-get campaing-duration))),
         })
 
         (var-set campaign-id-tracker (+ (var-get campaign-id-tracker) u1))
         (print { object: "rts", action: "campaign-created", value: (some {
             begins: (+ (get-current-time) u86400),
+            map-resources: map-resources,
             ends: (+ (get-current-time) (* u86400 u5)),
         }) })
 
@@ -140,7 +152,6 @@
 
 (define-private (check-can-gather (assigned-pawns int))
     (let ((player (get-player tx-sender)))
-        (asserts! (>= (get pawns player) assigned-pawns) err-not-enough-pawns)
         (asserts! (>= (- (get pawns player) assigned-pawns) 0) err-not-enough-pawns)
         (asserts! (has-active-campaign) err-no-active-campaign)
 
@@ -153,5 +164,8 @@
         (ok true)
     )
 )
-;;
 
+(define-private (more-than-zero (num int))
+    (> num 0)
+)
+;;
