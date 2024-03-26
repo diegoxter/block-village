@@ -75,7 +75,7 @@ describe("campaigns", () => {
   })
 
   describe("allow gathering resources", () => {
-    it("respecting pawn limit", ()=> {
+    it("respecting pawn limit", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
       let playerPawnsStateTracker = 100
 
@@ -117,6 +117,36 @@ describe("campaigns", () => {
       expect(thisFails.result).toBeErr(Cl.uint(22));
 
     })
+
+    it("correctly handles sending expeditions", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+
+      for (let i = 0; i < 3; i++) {
+        for (let n = 0; n < 4; n++) {
+          const txResponse: any = (simnet.callPublicFn(
+            'rts',
+            'send-gathering-expedition',
+            [Cl.int(5), Cl.uint(i)],
+            address2
+          ));
+
+          const miningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
+            player: Cl.principal(address2),
+            "resource-id": Cl.uint(i),
+            "expedition-id": Cl.uint(n)
+          }))
+
+          const txEventValue: bigint = txResponse.events[0].data.value.value
+
+          expect(miningPawnState).toBeSome(Cl.tuple({
+            "pawns-sent": Cl.int(5),
+            timestamp: Cl.uint(txEventValue)
+          }))
+        }
+      }
+
+    })
+
   })
 
 });
