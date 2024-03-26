@@ -37,6 +37,7 @@
     begins: uint,
     map-resources: (list 4 int), ;; wood / rock / food / gold
     ends: uint })
+
 (define-map player-assets { player: principal } {
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
@@ -45,9 +46,14 @@
         army: (list 3 int), ;; soldiers / archers / cavalry
     }
 })
-(define-map pawns-occupied-per-player { player: principal } {
-    resources: (list 4 int),  ;; these can be gathering wood / rock / food / gold
-})
+
+(define-map expedition-tracker { player: principal, resource-id: uint } uint)
+
+(define-map gathering-expeditions-per-player {
+    player: principal,
+    resource-id: uint, ;; can be wood / rock / food / gold
+    expedition-id: uint
+    } { timestamp: uint, pawns-sent: int })
 ;;
 
 (map-set campaigns {id: u0} { ;; empty campaign
@@ -90,19 +96,31 @@
     )
 )
 
-(define-public (gather-resource (assigned-pawns int) (resource-to-gather uint))
-    (let ((player-mining-pawns (get-mining-pawns-per-player tx-sender)))
+(define-public (send-gathering-expedition (assigned-pawns int) (resource-to-gather uint))
+    (begin
         (asserts! (and (>= resource-to-gather u0) (<= resource-to-gather u3)) err-invalid-gathering-option)
-        (asserts! (> assigned-pawns 0) err-invalid-assigned-pawn-amount)
-        (try! (check-can-gather assigned-pawns))
+        (let ((player-mining-pawns (get-gathering-expeditions-per-player
+            tx-sender resource-to-gather (get-expedition-tracker resource-to-gather))))
+            (asserts! (> assigned-pawns 0) err-invalid-assigned-pawn-amount)
+            (try! (check-can-gather assigned-pawns))
 
-        (map-set pawns-occupied-per-player {player: tx-sender}
-            (merge player-mining-pawns {
-                resources: (unwrap-panic (replace-at? (get resources player-mining-pawns) resource-to-gather assigned-pawns))
-            })
+            (map-set gathering-expeditions-per-player {
+                player: tx-sender, resource-id: resource-to-gather, expedition-id: (get-expedition-tracker resource-to-gather)}
+                (merge player-mining-pawns {
+                    pawns-sent: assigned-pawns,
+                    timestamp: (get-current-time)
+                })
+            )
+
+            (map-set expedition-tracker
+                {player: tx-sender, resource-id: resource-to-gather}
+                (+ (get-expedition-tracker resource-to-gather) u1)
+            )
+
+            (print (get-current-time))
+
+            (ok true)
         )
-
-        (ok true)
     )
 )
 ;;
@@ -127,17 +145,20 @@
     )
 )
 
-(define-read-only (get-mining-pawns-per-player (player principal))
-    (default-to {
-        resources: (list 0 0 0 0)
-    }
-        (map-get? pawns-occupied-per-player {player: player})
+(define-read-only (get-gathering-expeditions-per-player
+    (player principal) (r-id uint) (e-id uint))
+    (default-to { timestamp: u0, pawns-sent: 0 }
+        (map-get? gathering-expeditions-per-player {
+            player: player,
+            resource-id: r-id, ;; can be wood / rock / food / gold
+            expedition-id: e-id
+        })
     )
 )
 ;;
 
 
-
+00
 ;; private functions
 (define-private (get-current-time)
     (unwrap-panic (get-block-info? time (- block-height u1)))
@@ -147,6 +168,12 @@
     (<=
         (get-current-time)
         (get ends (unwrap-panic (get-campaign (- (var-get campaign-id-tracker) u1))))
+    )
+)
+
+(define-private (get-expedition-tracker (r-id uint))
+    (default-to u0
+        (map-get? expedition-tracker {player: tx-sender, resource-id: r-id})
     )
 )
 

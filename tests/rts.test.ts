@@ -77,13 +77,12 @@ describe("campaigns", () => {
   describe("allow gathering resources", () => {
     it("respecting pawn limit", ()=> {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
-      const miningArray = [Cl.int(0), Cl.int(0), Cl.int(0), Cl.int(0)]
       let playerPawnsStateTracker = 100
 
       for (let index = 0; index < 4; index++) {
-        (simnet.callPublicFn(
+        const txResponse: any = (simnet.callPublicFn(
           'rts',
-          'gather-resource',
+          'send-gathering-expedition',
           [Cl.int(24), Cl.uint(index)],
           address2
         ));
@@ -100,14 +99,21 @@ describe("campaigns", () => {
           })
         }))
 
-        const miningPawnState = simnet.getMapEntry('rts','pawns-occupied-per-player', Cl.tuple({player: Cl.principal(address2)}))
-        miningArray[index] = Cl.int(24)
+        const miningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
+          player: Cl.principal(address2),
+          "resource-id": Cl.uint(index),
+          "expedition-id": Cl.uint(0)
+        }))
+
+        const txEventValue: bigint = txResponse.events[0].data.value.value
+
         expect(miningPawnState).toBeSome(Cl.tuple({
-          resources: Cl.list(miningArray)
+          "pawns-sent": Cl.int(24),
+          timestamp: Cl.uint(txEventValue)
         }))
       }
 
-      const thisFails = simnet.callPublicFn('rts','gather-resource', [Cl.int(7), Cl.uint(0)], address2)
+      const thisFails = simnet.callPublicFn('rts','send-gathering-expedition', [Cl.int(7), Cl.uint(0)], address2)
       expect(thisFails.result).toBeErr(Cl.uint(22));
 
     })
