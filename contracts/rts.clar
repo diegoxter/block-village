@@ -51,8 +51,7 @@
     town: {
         defenses: (list 2 int), ;; hit-points / walls
         army: (list 3 int), ;; soldiers / archers / cavalry
-    }
-})
+}})
 
 (define-map expedition-tracker { player: principal, resource-id: uint } uint)
 
@@ -69,8 +68,7 @@
 (map-set campaigns {id: u0} { ;; empty campaign
     begins: u0,
     map-resources: (list 0 0 0 0),
-    ends: u0
-})
+    ends: u0})
 ;;
 ;;
 
@@ -83,30 +81,25 @@
                 (get-current-time)
                 (unwrap-panic (get ends (get-campaign (- (var-get campaign-id-tracker) u1))))
             )
-            err-unended-previous-campaign
-        )
+            err-unended-previous-campaign)
         (asserts!
             (fold and
-            (map more-than-zero map-resources) true) err-invalid-new-campaign-resources
-        )
+            (map more-than-zero map-resources) true) err-invalid-new-campaign-resources)
         (asserts! (is-eq (len map-resources) u4) err-invalid-new-campaign-resources)
 
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
             begins: (+ (get-current-time) u86400),
             map-resources: map-resources,
-            ends: (+ (get-current-time) (* u86400 (var-get campaing-duration))),
-        })
+            ends: (+ (get-current-time) (* u86400 (var-get campaing-duration)))})
 
         (var-set campaign-id-tracker (+ (var-get campaign-id-tracker) u1))
         (print { object: "rts", action: "campaign-created", value: (some {
             begins: (+ (get-current-time) u86400),
             map-resources: map-resources,
-            ends: (+ (get-current-time) (* u86400 u5)),
-        }) })
+            ends: (+ (get-current-time) (* u86400 u5))})})
 
         (ok true)
-    )
-)
+))
 
 (define-public (send-gathering-expedition (assigned-pawns int) (resource-to-gather uint))
     (begin
@@ -121,20 +114,16 @@
                 (merge player-mining-pawns {
                     pawns-sent: assigned-pawns,
                     timestamp: (get-current-time)
-                })
-            )
+            }))
 
             (map-set expedition-tracker
                 {player: tx-sender, resource-id: resource-to-gather}
-                (+ (get-expedition-tracker resource-to-gather) u1)
-            )
+                (+ (get-expedition-tracker resource-to-gather) u1))
 
             (print (get-current-time))
 
             (ok true)
-        )
-    )
-)
+)))
 
 (define-public (return-gathering-expedition
     (resource-to-gather uint) (expedition-id uint))
@@ -163,11 +152,9 @@
                     )),
                     pawns: (+
                     (get pawns (get-player tx-sender)) (get pawns-sent expedition)),
-                })
-            )
+            }))
 
             (print (- (get-current-time) (get timestamp expedition)))
-
 
             (map-set gathering-expeditions-per-player {
                 player: tx-sender,
@@ -178,27 +165,22 @@
                 pawns-sent: 0
             }))
 
-            (if (is-eq
-                (get-expedition-tracker resource-to-gather) expedition-id)
+            (if (is-eq (get-expedition-tracker resource-to-gather) expedition-id)
                 (map-set expedition-tracker
                     {player: tx-sender, resource-id: resource-to-gather}
-                    (- (get-expedition-tracker resource-to-gather) u1)
-                )
+                    (- (get-expedition-tracker resource-to-gather) u1))
                 false
             )
 
             (ok true)
-        )
-    )
-)
+)))
 ;;
 
 
 
 ;; read only functions
 (define-read-only (get-campaign (campaign-id uint))
-    (map-get? campaigns {id: campaign-id})
-)
+    (map-get? campaigns {id: campaign-id}))
 
 (define-read-only (get-player (player principal))
     (default-to {
@@ -207,11 +189,9 @@
         town: {
             defenses: (list 20 20), ;; hit-points / walls
             army: (list 0 0 0) ;; soldiers / archers / cavalry
-        }
-    }
+    }}
         (map-get? player-assets {player: player})
-    )
-)
+))
 
 (define-read-only (get-gathering-expeditions-per-player
     (player principal) (r-id uint) (e-id uint))
@@ -220,54 +200,45 @@
             player: player,
             resource-id: r-id, ;; can be wood / rock / food / gold
             expedition-id: e-id
-        })
-    )
-)
+})))
 
 (define-read-only (get-resource-difficulty (r-id uint))
-    (unwrap-panic (element-at? (var-get resource-mining-difficulty) r-id))
-)
+    (unwrap-panic (element-at? (var-get resource-mining-difficulty) r-id)))
 
 (define-read-only (get-gathered-resource
     (sent-pawns int) (r-id uint) (time-gathering uint))
     (to-int (/
         (* (to-uint sent-pawns) (/ time-gathering u3600))
         (get-resource-difficulty r-id)
-        )
-    )
-)
+)))
 
 (define-read-only (is-expedition-active (player principal) (r-id uint) (e-id uint))
     (and
-        (not (is-eq
-            (get timestamp (get-gathering-expeditions-per-player
-    player r-id e-id)) u0))
-        (not (is-eq
-            (get pawns-sent (get-gathering-expeditions-per-player
-    player r-id e-id)) 0))
-    )
-)
+        (>
+            (get timestamp
+                (get-gathering-expeditions-per-player player r-id e-id)) u0)
+        (>
+            (get pawns-sent
+                (get-gathering-expeditions-per-player player r-id e-id)) 0)
+))
 ;;
 
 
 
 ;; private functions
 (define-private (get-current-time)
-    (unwrap-panic (get-block-info? time (- block-height u1)))
-)
+    (unwrap-panic (get-block-info? time (- block-height u1))))
 
 (define-private (has-active-campaign)
     (<=
         (get-current-time)
         (get ends (unwrap-panic (get-campaign (- (var-get campaign-id-tracker) u1))))
-    )
-)
+))
 
 (define-private (get-expedition-tracker (r-id uint))
     (default-to u0
         (map-get? expedition-tracker {player: tx-sender, resource-id: r-id})
-    )
-)
+))
 
 (define-private (check-can-gather (assigned-pawns int))
     (let ((player (get-player tx-sender)))
@@ -280,11 +251,8 @@
             })
         )
 
-        (ok true)
-    )
-)
+        (ok true)))
 
 (define-private (more-than-zero (num int))
-    (> num 0)
-)
+    (> num 0))
 ;;

@@ -71,7 +71,6 @@ describe("campaigns", () => {
 
       expect(thisFails.result).toBeErr(Cl.uint(3));
     }
-
   })
 
   describe("allow gathering resources", () => {
@@ -115,7 +114,6 @@ describe("campaigns", () => {
 
       const thisFails = simnet.callPublicFn('rts','send-gathering-expedition', [Cl.int(7), Cl.uint(0)], address2)
       expect(thisFails.result).toBeErr(Cl.uint(22));
-
     })
 
     it("correctly handles sending/returning expeditions", () => {
@@ -197,8 +195,6 @@ describe("campaigns", () => {
           })
         }
       }
-
-
     })
 
   })
