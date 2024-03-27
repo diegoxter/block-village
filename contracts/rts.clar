@@ -11,16 +11,21 @@
 ;;
 
 ;; constants
+
+;; Invalid campaign errors
 (define-constant err-invalid-campaign (err u0))
 (define-constant err-unended-previous-campaign (err u1))
 (define-constant err-no-active-campaign (err u2))
 (define-constant err-invalid-new-campaign-resources (err u3))
 
-
+;; Invalid user errors
 (define-constant err-invalid-player (err u20))
 (define-constant err-invalid-assigned-pawn-amount (err u21))
 (define-constant err-not-enough-pawns (err u22))
 (define-constant err-invalid-gathering-option (err u23))
+
+;; Invalid expedition errors
+(define-constant err-invalid-expedition (err u30))
 ;;
 
 
@@ -28,6 +33,8 @@
 ;; data vars
 (define-data-var campaign-id-tracker uint u1)
 (define-data-var campaing-duration uint u5)
+(define-data-var resource-mining-difficulty
+    (list 4 uint) (list u2 u3 u3 u6)) ;; wood / rock / food / gold
 ;;
 
 
@@ -56,11 +63,16 @@
     } { timestamp: uint, pawns-sent: int })
 ;;
 
+
+;;
+;; INITIAL CONTRACT STATE
 (map-set campaigns {id: u0} { ;; empty campaign
     begins: u0,
     map-resources: (list 0 0 0 0),
     ends: u0
 })
+;;
+;;
 
 
 ;; public functions
@@ -77,7 +89,7 @@
             (fold and
             (map more-than-zero map-resources) true) err-invalid-new-campaign-resources
         )
-        (asserts! (is-eq (len map-resources) u4) (err u5))
+        (asserts! (is-eq (len map-resources) u4) err-invalid-new-campaign-resources)
 
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
             begins: (+ (get-current-time) u86400),
@@ -123,6 +135,62 @@
         )
     )
 )
+
+(define-public (return-gathering-expedition
+    (resource-to-gather uint) (expedition-id uint))
+    (begin
+        (asserts! (and (>= resource-to-gather u0) (<= resource-to-gather u3)) err-invalid-gathering-option)
+        (let ((expedition (get-gathering-expeditions-per-player
+            tx-sender resource-to-gather expedition-id)))
+            (asserts! (not (is-eq (get timestamp expedition) u0)) err-invalid-expedition)
+            (asserts! (not (is-eq (get pawns-sent expedition) 0)) err-invalid-expedition)
+
+            (map-set player-assets {player: tx-sender}
+                (merge (get-player tx-sender) {
+                    resources: (unwrap-panic (replace-at?
+                        (get resources (get-player tx-sender))
+                        resource-to-gather
+                        (+  ;; the current resource amount
+                            (unwrap-panic (element-at?
+                                (get resources (get-player tx-sender)) resource-to-gather))
+                            ;; the gathered amount
+                            (get-gathered-resource
+                                (get pawns-sent expedition)
+                                resource-to-gather
+                                (- (get-current-time) (get timestamp expedition))
+                            )
+                        )
+                    )),
+                    pawns: (+
+                    (get pawns (get-player tx-sender)) (get pawns-sent expedition)),
+                })
+            )
+
+            (print (- (get-current-time) (get timestamp expedition)))
+
+
+            (map-set gathering-expeditions-per-player {
+                player: tx-sender,
+                resource-id: resource-to-gather,
+                expedition-id: expedition-id
+            } (merge expedition {
+                timestamp: u0,
+                pawns-sent: 0
+            }))
+
+            (if (is-eq
+                (get-expedition-tracker resource-to-gather) expedition-id)
+                (map-set expedition-tracker
+                    {player: tx-sender, resource-id: resource-to-gather}
+                    (- (get-expedition-tracker resource-to-gather) u1)
+                )
+                false
+            )
+
+            (ok true)
+        )
+    )
+)
 ;;
 
 
@@ -155,10 +223,34 @@
         })
     )
 )
+
+(define-read-only (get-resource-difficulty (r-id uint))
+    (unwrap-panic (element-at? (var-get resource-mining-difficulty) r-id))
+)
+
+(define-read-only (get-gathered-resource
+    (sent-pawns int) (r-id uint) (time-gathering uint))
+    (to-int (/
+        (* (to-uint sent-pawns) (/ time-gathering u3600))
+        (get-resource-difficulty r-id)
+        )
+    )
+)
+
+(define-read-only (is-expedition-active (player principal) (r-id uint) (e-id uint))
+    (and
+        (not (is-eq
+            (get timestamp (get-gathering-expeditions-per-player
+    player r-id e-id)) u0))
+        (not (is-eq
+            (get pawns-sent (get-gathering-expeditions-per-player
+    player r-id e-id)) 0))
+    )
+)
 ;;
 
 
-00
+
 ;; private functions
 (define-private (get-current-time)
     (unwrap-panic (get-block-info? time (- block-height u1)))

@@ -118,10 +118,13 @@ describe("campaigns", () => {
 
     })
 
-    it("correctly handles sending expeditions", () => {
+    it("correctly handles sending/returning expeditions", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
 
-      for (let i = 0; i < 3; i++) {
+      const miningPawnState: any = {}
+
+      for (let i = 0; i <= 3; i++) {
+        miningPawnState[`resource-${i}`] = {}
         for (let n = 0; n < 4; n++) {
           const txResponse: any = (simnet.callPublicFn(
             'rts',
@@ -130,7 +133,7 @@ describe("campaigns", () => {
             address2
           ));
 
-          const miningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
+          miningPawnState[`resource-${i}`][`expedition-${n}`] = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
             player: Cl.principal(address2),
             "resource-id": Cl.uint(i),
             "expedition-id": Cl.uint(n)
@@ -138,12 +141,63 @@ describe("campaigns", () => {
 
           const txEventValue: bigint = txResponse.events[0].data.value.value
 
-          expect(miningPawnState).toBeSome(Cl.tuple({
+          expect(miningPawnState[`resource-${i}`][`expedition-${n}`]).toBeSome(Cl.tuple({
             "pawns-sent": Cl.int(5),
             timestamp: Cl.uint(txEventValue)
           }))
         }
       }
+
+      simnet.mineEmptyBlocks(oneDayInBlocks)
+
+      const baseValues = Array(5).fill(50)
+      let pawnTracker = 20
+      for (let i = 0; i <= 3; i++) {
+        for (let n = 0; n < 4; n++) {
+          simnet.mineEmptyBlocks(20)
+
+          const expeditionData: any = (simnet.callReadOnlyFn(
+            "rts",
+            "get-gathering-expeditions-per-player",
+            [Cl.principal(address2), Cl.uint(i), Cl.uint(n)],
+            address2)).result
+
+
+          const txResponse: any = simnet.callPublicFn(
+            'rts',
+            'return-gathering-expedition',
+            [Cl.uint(i), Cl.uint(n)],
+            address2
+          );
+          const txEventValue: bigint = txResponse.events[0].data.value.value
+
+          const gatheredResource: any = (simnet.callReadOnlyFn("rts","get-gathered-resource",
+          [
+            Cl.int(expeditionData.data['pawns-sent'].value),
+            Cl.uint(i),
+            Cl.uint(txEventValue)
+          ],
+            address2)
+          ).result
+
+          const newPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+
+          baseValues[i] += Number(gatheredResource.value)
+          const resourcesList = [Cl.int(baseValues[0]), Cl.int(baseValues[1]), Cl.int(baseValues[2]), Cl.int(baseValues[3]), Cl.int(baseValues[4])]
+
+          pawnTracker += 5
+
+          expect(newPlayerState).toBeTuple({
+            pawns: Cl.int(pawnTracker),
+            resources: Cl.list(resourcesList),
+            town: Cl.tuple({
+              army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
+              defenses: Cl.list([Cl.int(20), Cl.int(20)])
+            })
+          })
+        }
+      }
+
 
     })
 
