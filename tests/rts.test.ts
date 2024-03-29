@@ -108,7 +108,8 @@ describe("campaigns", () => {
 
         expect(miningPawnState).toBeSome(Cl.tuple({
           "pawns-sent": Cl.int(24),
-          timestamp: Cl.uint(txEventValue)
+          timestamp: Cl.uint(txEventValue),
+          refining: Cl.list([Cl.int(0), Cl.int(0)])
         }))
       }
 
@@ -141,7 +142,8 @@ describe("campaigns", () => {
 
           expect(miningPawnState[`resource-${i}`][`expedition-${n}`]).toBeSome(Cl.tuple({
             "pawns-sent": Cl.int(5),
-            timestamp: Cl.uint(txEventValue)
+            timestamp: Cl.uint(txEventValue),
+            refining: Cl.list([Cl.int(0), Cl.int(0)])
           }))
         }
       }
@@ -159,7 +161,6 @@ describe("campaigns", () => {
             "get-gathering-expeditions-per-player",
             [Cl.principal(address2), Cl.uint(i), Cl.uint(n)],
             address2)).result
-
 
           const txResponse: any = simnet.callPublicFn(
             'rts',
@@ -197,6 +198,127 @@ describe("campaigns", () => {
       }
     })
 
-  })
+    it("Allows resource refining, respecting due process", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
 
+      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      expect(firstPlayerState).toBeTuple({
+        pawns: Cl.int(100),
+        resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
+        town: Cl.tuple({
+          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
+          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+        })
+      })
+
+      const thisFailsWoodHigh: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(80), Cl.int(50)],
+        address2
+      );
+      expect(thisFailsWoodHigh.result).toBeErr(Cl.uint(24))
+      const thisFailsWoodLow: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(5), Cl.int(50)],
+        address2
+      );
+      expect(thisFailsWoodLow.result).toBeErr(Cl.uint(24))
+      const thisFailsRockHigh: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(50), Cl.int(80)],
+        address2
+      );
+      expect(thisFailsRockHigh.result).toBeErr(Cl.uint(25))
+      const thisFailsRockLow: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(50), Cl.int(5)],
+        address2
+      );
+      expect(thisFailsRockLow.result).toBeErr(Cl.uint(25))
+
+      const woodSent = 30
+      const rockSent = 21
+
+      const thisFailsNumberNotInRelationship = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(10), Cl.int(14)],
+        address2
+      );
+      expect(thisFailsNumberNotInRelationship.result).toBeErr(Cl.uint(32))
+
+      const sendResourcesToRefine: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(woodSent), Cl.int(rockSent)],
+        address2
+      );
+      expect(sendResourcesToRefine.result).toBeOk(Cl.bool(true))
+      const miningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
+        player: Cl.principal(address2),
+        "resource-id": Cl.uint(4),
+        "expedition-id": Cl.uint(0)
+      }))
+      expect(miningPawnState).toBeSome(Cl.tuple({
+        "pawns-sent": Cl.int(10),
+        refining: Cl.list([ Cl.int(woodSent),  Cl.int(rockSent)]),
+        timestamp: Cl.uint(sendResourcesToRefine.events[0].data.value.value)
+      }))
+
+      const thisFailsTooSoon: any = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(10), Cl.int(7)],
+        address2
+      );
+      expect(thisFailsTooSoon.result).toBeErr(Cl.uint(31))
+
+      const newPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      expect(newPlayerState).toBeTuple({
+        pawns: Cl.int(90),
+        resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50)]),
+        town: Cl.tuple({
+          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
+          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+        })
+      })
+
+      simnet.mineEmptyBlocks(3)
+
+      const collectMetal = simnet.callPublicFn(
+        'rts',
+        'refine-resources',
+        [Cl.int(0), Cl.int(0)],
+        address2
+      );
+      expect(collectMetal.result).toBeOk(Cl.bool(true))
+
+      const refinedMetal = Number(Math.floor((woodSent * rockSent) / 12).toFixed(0))
+
+      const finalPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      expect(finalPlayerState).toBeTuple({
+        pawns: Cl.int(100),
+        resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50+refinedMetal)]),
+        town: Cl.tuple({
+          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
+          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+        })
+      })
+      const finalMiningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
+        player: Cl.principal(address2),
+        "resource-id": Cl.uint(4),
+        "expedition-id": Cl.uint(0)
+      }))
+      expect(finalMiningPawnState).toBeSome(Cl.tuple({
+        "pawns-sent": Cl.int(0),
+        refining: Cl.list([ Cl.int(0),  Cl.int(0)]),
+        timestamp: Cl.uint(0)
+      }))
+    })
+
+  })
 });
