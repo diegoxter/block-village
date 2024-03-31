@@ -30,15 +30,37 @@
 (define-constant err-invalid-expedition (err u30))
 (define-constant err-metal-not-yet-refined (err u31))
 (define-constant err-wood-rock-not-equal-share (err u32))
+
+;; Invalid military errors
+(define-constant err-invalid-military-option (err u40))
+(define-constant err-military-training-not-over (err u41))
+(define-constant err-invalid-resource-amount (err u42))
+
 ;;
 
 
 
 ;; data vars
+;; Campaing related
 (define-data-var campaign-id-tracker uint u1)
+;; Vars that can be set via smart contract interactions (TO DO)
 (define-data-var campaing-duration uint u5)
-(define-data-var resource-mining-difficulty
-    (list 5 uint) (list u2 u3 u3 u6 u12)) ;; wood / rock / food / gold
+
+;; Gathering related
+;; wood / rock / food / gold
+(define-data-var resource-mining-difficulty (list 5 uint) (list u2 u3 u3 u6 u12))
+
+;; Military related
+;; (in seconds) 0 soldiers / 1 archers / 2 cavalry
+(define-data-var training-time-required (list 3 uint) (list u1800 u2400 u3600))
+(define-data-var required-resource-per-unit-type (list 3 {
+    resource-id: uint,
+    resource-amount: int
+}) (list
+{ resource-id: u1, resource-amount: 5 }
+{ resource-id: u0, resource-amount: 4 }
+{ resource-id: u2, resource-amount: 8 }
+))
 ;;
 
 
@@ -56,6 +78,17 @@
         defenses: (list 2 int), ;; hit-points / walls
         army: (list 3 int), ;; soldiers / archers / cavalry
 }})
+
+(define-map player-pawns-in-task { player: principal } {
+    training: (list 3 { ;; soldiers / archers / cavalry
+        pawns-training: int,
+        timestamp: uint
+    }),
+    repairing: {
+        pawns: int,
+        timestamp: uint
+    }
+})
 
 (define-map expedition-tracker { player: principal, resource-id: uint } uint)
 
@@ -212,6 +245,112 @@
 
             (ok true)))
 ))
+
+(define-public (train-soldiers (unit-type-index uint) (assigned-pawns int))
+    (begin
+        (asserts! (and (>= unit-type-index u0) (<= unit-type-index u2)) err-invalid-military-option)
+        (let (
+            (occupied-units (get-occupied-units-per-player))
+            (player (get-player tx-sender))
+        )
+            (if (is-eq
+                    (get pawns-training (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))
+                0)
+
+                (begin ;; if there arent units training for this type, train them
+                    (asserts! (> assigned-pawns 0) err-invalid-assigned-pawn-amount)
+                    (asserts! (>=
+                        (-
+                            (unwrap-panic (element-at?
+                                (get resources player) (get-resource-index-per-training-unit-type unit-type-index)))
+                            (*
+                                assigned-pawns
+                                (get resource-amount (unwrap-panic (element-at? (var-get required-resource-per-unit-type) unit-type-index)))
+                            ))
+                        0)
+                    err-invalid-resource-amount)
+                    (try! (has-enough-pawns assigned-pawns))
+
+                    (map-set player-assets {player: tx-sender}
+                        (merge player {
+                            pawns: (- (get pawns player) assigned-pawns),
+                            resources: (unwrap-panic (replace-at?
+                            (get resources player)
+                            (get-resource-index-per-training-unit-type unit-type-index)
+                            (-
+                                (unwrap-panic (element-at? (get resources player) (get-resource-index-per-training-unit-type unit-type-index)))
+                                (*
+                                assigned-pawns
+                                (get resource-amount (unwrap-panic (element-at? (var-get required-resource-per-unit-type) unit-type-index)))
+                            ))))
+                        })
+                    )
+
+                    (print (get-current-time))
+
+                    (map-set player-pawns-in-task {player: tx-sender}
+                        {
+                            training:
+                                (unwrap-panic (replace-at? (get training occupied-units) unit-type-index
+                                    (merge (unwrap-panic (element-at? (get training occupied-units) unit-type-index)) {
+                                pawns-training: (+ (get pawns-training (unwrap-panic
+                                    (element-at? (get training occupied-units) unit-type-index)))
+                                assigned-pawns),
+                                timestamp: (get-current-time)
+                            }))),
+                            repairing: (get repairing occupied-units)
+                        }
+                    )
+
+                    (ok assigned-pawns)
+                )
+                (begin ;; if there is a group training...
+                    (asserts! (> ;; ... and if they are ready...
+                        (get-current-time)
+                        (+
+                            (get timestamp (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))
+                            (unwrap-panic (element-at? (var-get training-time-required) unit-type-index)))
+                    ) err-military-training-not-over)
+
+                    ;; ... withdraw them from barracks ...
+                    (map-set player-pawns-in-task {player: tx-sender}
+                        {
+                            training:
+                                (unwrap-panic (replace-at? (get training occupied-units) unit-type-index
+                                    (merge (unwrap-panic (element-at? (get training occupied-units) unit-type-index)) {
+                                pawns-training: 0,
+                                timestamp: u0
+                            }))),
+                            repairing: (get repairing occupied-units)
+                        }
+                    )
+
+                    ;; ... and send them to the player
+                    (map-set player-assets {player: tx-sender}
+                        (merge player {
+                            town: (merge
+                                (get town player)
+                                {army: (unwrap-panic (replace-at?
+                                    (get army (get town player)) unit-type-index
+                                    (+
+                                    (unwrap-panic (element-at? (get army (get town player)) unit-type-index))
+                                    (get pawns-training (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))
+                                )))}
+                            )
+                        })
+                    )
+
+                (ok (get pawns-training (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))))
+            )
+    )
+))
+
+(define-public (repair-town)
+;; TO DO
+(ok true))
+
+(define-public (attack-player)
+(ok true))
 ;;
 
 
@@ -239,6 +378,22 @@
             resource-id: r-id, ;; can be wood / rock / food / gold
             expedition-id: e-id
 })))
+
+
+(define-read-only (get-occupied-units-per-player)
+    (default-to {
+        training: (list
+            { pawns-training: 0, timestamp: u0 } ;; soldiers
+            { pawns-training: 0, timestamp: u0 } ;; archers
+            { pawns-training: 0, timestamp: u0 } ;; cavalry
+        ),
+        repairing: {
+            pawns: 0,
+            timestamp: u0
+        }
+    }
+
+    (map-get? player-pawns-in-task { player: tx-sender })))
 
 (define-read-only (get-resource-difficulty (r-id uint))
     (unwrap-panic (element-at? (var-get resource-mining-difficulty) r-id)))
@@ -286,17 +441,21 @@
         (map-get? expedition-tracker {player: tx-sender, resource-id: r-id}))
 )
 
+(define-private (has-enough-pawns (assigned-pawns int))
+    (begin
+        (asserts! (>= (- (get pawns (get-player tx-sender)) assigned-pawns) 0) err-not-enough-pawns)
+        (asserts! (has-active-campaign) err-no-active-campaign)
+(ok true)))
+
 (define-private (check-can-gather (assigned-pawns int))
     (let ((player (get-player tx-sender)))
-        (asserts! (>= (- (get pawns player) assigned-pawns) 0) err-not-enough-pawns)
-        (asserts! (has-active-campaign) err-no-active-campaign)
+        (try! (has-enough-pawns assigned-pawns))
 
         (map-set player-assets {player: tx-sender}
             (merge player {
                 pawns: (- (get pawns player) assigned-pawns),
             })
         )
-
 (ok true)))
 
 (define-private (return-pawns-and-resource-gathering (r-id uint) (e-id uint))
@@ -345,6 +504,10 @@
         pawns-sent: 0,
         refining: (list 0 0)
 })))
+
+(define-private (get-resource-index-per-training-unit-type (unit-type-index uint))
+    (get resource-id (unwrap-panic (element-at? (var-get required-resource-per-unit-type) unit-type-index)))
+)
 
 (define-private (more-than-zero (num int)) (> num 0))
 ;;

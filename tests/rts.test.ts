@@ -321,4 +321,124 @@ describe("campaigns", () => {
     })
 
   })
+
+  describe("allow pawn occupation", () => {
+    describe("military activities", () => {
+      it("such as training, respecting pawn limits", () => {
+        simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+
+        const trainingAmount = 6
+        const armyArray = [0, 0, 0]
+        const trainingTimestamps = [0, 0, 0]
+        const trainingObjectsArray = [
+          {
+            "pawns-training": Cl.int(armyArray[0]),
+            timestamp: Cl.uint(trainingTimestamps[0])
+          },
+          {
+            "pawns-training": Cl.int(armyArray[1]),
+            timestamp: Cl.uint(trainingTimestamps[1])
+          },
+          {
+            "pawns-training": Cl.int(armyArray[2]),
+            timestamp: Cl.uint(trainingTimestamps[2])
+          }
+        ]
+
+        for (let index = 0; index < 3; index++) {
+          const txResponse: any = simnet.callPublicFn(
+            'rts',
+            'train-soldiers',
+            [Cl.uint(index), Cl.int(trainingAmount)],
+            address2
+          );
+          expect(txResponse.result).toBeOk(Cl.int(trainingAmount))
+
+          const txEventValue: bigint = txResponse.events[0].data.value.value
+
+          armyArray[index] += trainingAmount
+          trainingObjectsArray[index]['timestamp'] = Cl.uint(txEventValue)
+          trainingObjectsArray[index]['pawns-training'] = Cl.int(trainingAmount)
+
+          const trainingData: any = (simnet.callReadOnlyFn(
+            "rts",
+            "get-occupied-units-per-player",
+            [],
+            address2)
+          ).result
+
+          expect(trainingData).toBeTuple({
+            repairing: Cl.tuple({
+              pawns: Cl.int(0),
+              timestamp: Cl.uint(0)
+            }),
+            training: Cl.list([
+              Cl.tuple(trainingObjectsArray[0]),
+              Cl.tuple(trainingObjectsArray[1]),
+              Cl.tuple(trainingObjectsArray[2])
+            ])
+          })
+        }
+
+        for (let index = 0; index < 3; index++) {
+          const endTraining = simnet.callPublicFn(
+            'rts',
+            'train-soldiers',
+            [Cl.uint(index), Cl.int(0)],
+            address2
+          ).result;
+          expect(endTraining).toBeOk(Cl.int(trainingAmount))
+
+          const trainingData: any = (simnet.callReadOnlyFn(
+            "rts",
+            "get-occupied-units-per-player",
+            [],
+            address2)
+          ).result
+
+          trainingObjectsArray[index]['timestamp'] = Cl.uint(0)
+          trainingObjectsArray[index]['pawns-training'] = Cl.int(0)
+
+          expect(trainingData).toBeTuple({
+            repairing: Cl.tuple({
+              pawns: Cl.int(0),
+              timestamp: Cl.uint(0)
+            }),
+            training: Cl.list([
+              Cl.tuple(trainingObjectsArray[0]),
+              Cl.tuple(trainingObjectsArray[1]),
+              Cl.tuple(trainingObjectsArray[2])
+            ])
+          })
+        }
+
+        const lastPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+
+        expect(lastPlayerState).toBeTuple({
+          pawns: Cl.int(100 - (trainingAmount * 3)),
+          resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
+          town: Cl.tuple({
+            army: Cl.list([Cl.int(armyArray[0]), Cl.int(armyArray[1]), Cl.int(armyArray[2])]),
+            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          })
+        })
+      })
+
+      // it("and raids!", () => {
+      //   simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+
+      // })
+    })
+
+    // describe("repair activities", () => {
+    //   it("defense building, respecting pawn limits", () => {
+    //     expect(false).to.be.true
+    //   })
+
+    //   it("town structure rebuilding, respecting pawn limits", () => {
+    //     expect(false).to.be.true
+    //   })
+    // })
+
+  })
 });
