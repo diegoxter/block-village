@@ -19,7 +19,7 @@ const returnAddresses = () => {
   return addresses
 }
 
-const { address1, address2 } = returnAddresses()
+const { address1, address2, address3 } = returnAddresses()
 
 const returnCampaignResources: ()=> Array<IntCV> = () => {
   return Array(4).fill(Cl.int(2000));
@@ -322,9 +322,9 @@ describe("campaigns", () => {
 
   })
 
-  describe("allow pawn occupation", () => {
-    describe("military activities", () => {
-      it("such as training, respecting pawn limits", () => {
+  describe("allow pawn occupation...", () => {
+    describe("...military activities", () => {
+      it("like training, respecting limits", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
 
         const trainingAmount = 6
@@ -424,10 +424,76 @@ describe("campaigns", () => {
         })
       })
 
-      // it("and raids!", () => {
-      //   simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      it("and raids!", () => {
+        simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        const trainingAmount = 5
+        for (let index = 0; index < 3; index++) { // get some army
+          simnet.callPublicFn(
+            'rts',
+            'train-soldiers',
+            [Cl.uint(index), Cl.int(trainingAmount)],
+            address2
+          );
 
-      // })
+          simnet.mineEmptyBlocks(5)
+
+          expect(simnet.callPublicFn(
+            'rts',
+            'train-soldiers',
+            [Cl.uint(index), Cl.int(0)],
+            address2
+          ).result).toBeOk(Cl.int(5))
+        }
+
+        const thisFails = simnet.callPublicFn(
+          'rts',
+          'send-raid',
+          [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(0)))],
+          address2
+        )
+        expect(thisFails.result).toBeErr(Cl.uint(43))
+
+        const raidArmyAmount = 2
+        const txResponse: any = simnet.callPublicFn(
+          'rts',
+          'send-raid',
+          [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(raidArmyAmount)))],
+          address2
+        )
+        const txEventValue: bigint = txResponse.events[0].data.value.value
+        expect(txResponse.result).toBeOk(Cl.bool(true))
+
+        const thisFailsToo = simnet.callPublicFn(
+          'rts',
+          'send-raid',
+          [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(raidArmyAmount+3)))],
+          address2
+        )
+        // Because there are no more soldiers to send
+        expect(thisFailsToo.result).toBeErr(Cl.uint(43))
+
+        const raidPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+
+        const remainingArmy = trainingAmount- raidArmyAmount
+        expect(raidPlayerState).toBeTuple({
+          pawns: Cl.int(100 - (trainingAmount * 3)),
+          resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
+          town: Cl.tuple({
+            army: Cl.list(Array(3).fill(Cl.int(remainingArmy))),
+            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          })
+        })
+
+        const initialRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+          invader: Cl.principal(address2),
+          defender: Cl.principal(address3)
+        }))
+        expect(initialRaidStatus).toBeSome(Cl.tuple({
+          army: Cl.list(Array(3).fill(Cl.int(raidArmyAmount))),
+          success: Cl.none(),
+          timestamp: Cl.uint(txEventValue)
+        }))
+      })
     })
 
     // describe("repair activities", () => {

@@ -35,6 +35,7 @@
 (define-constant err-invalid-military-option (err u40))
 (define-constant err-military-training-not-over (err u41))
 (define-constant err-invalid-resource-amount (err u42))
+(define-constant err-invalid-army-amount (err u43))
 
 ;;
 
@@ -88,6 +89,12 @@
         pawns: int,
         timestamp: uint
     }
+})
+
+(define-map raids { invader: principal, defender: principal } {
+    timestamp: uint,
+    army: (list 3 int), ;; soldiers / archers / cavalry
+    success: (optional bool)
 })
 
 (define-map expedition-tracker { player: principal, resource-id: uint } uint)
@@ -349,8 +356,36 @@
 ;; TO DO
 (ok true))
 
-(define-public (attack-player)
-(ok true))
+;; #[allow(unchecked_data)]
+(define-public (send-raid (victim principal) (army (list 3 int)))
+    (begin
+        (asserts! (fold or
+            (map more-than-zero army) false) err-invalid-army-amount)
+        (let ((player (get-player tx-sender)))
+            (asserts! (fold and
+                (map more-than-zero (map - (get army (get town player)) army)) true) err-invalid-army-amount)
+
+            (map-set player-assets {player: tx-sender}
+            (merge player { town: (merge (get town player) {
+                army: (map - (get army (get town player)) army)})
+            }))
+
+            (map-set raids {invader: tx-sender, defender: victim} {
+                timestamp: (get-current-time),
+                army: army,
+                success: none
+            })
+
+        (print (get-current-time))
+
+        (ok true))
+))
+
+;; #[allow(unchecked_data)]
+(define-public (return-raid (victim principal))
+;; TO DO
+(ok true)
+)
 ;;
 
 
