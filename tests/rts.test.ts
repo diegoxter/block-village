@@ -88,6 +88,7 @@ describe("campaigns", () => {
 
         const playerPawnState = simnet.getMapEntry('rts','player-assets', Cl.tuple({player: Cl.principal(address2)}))
         expect(playerPawnState).toBeSome(Cl.tuple({
+          "last-raid": Cl.uint(0),
           resources: Cl.list(
             [Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]
           ),
@@ -187,6 +188,7 @@ describe("campaigns", () => {
           pawnTracker += 5
 
           expect(newPlayerState).toBeTuple({
+            "last-raid": Cl.uint(0),
             pawns: Cl.int(pawnTracker),
             resources: Cl.list(resourcesList),
             town: Cl.tuple({
@@ -203,6 +205,7 @@ describe("campaigns", () => {
 
       const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(firstPlayerState).toBeTuple({
+        "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
         resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
         town: Cl.tuple({
@@ -279,6 +282,7 @@ describe("campaigns", () => {
 
       const newPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(newPlayerState).toBeTuple({
+        "last-raid": Cl.uint(0),
         pawns: Cl.int(90),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50)]),
         town: Cl.tuple({
@@ -301,6 +305,7 @@ describe("campaigns", () => {
 
       const finalPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(finalPlayerState).toBeTuple({
+        "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50+refinedMetal)]),
         town: Cl.tuple({
@@ -415,6 +420,7 @@ describe("campaigns", () => {
         const lastPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
         expect(lastPlayerState).toBeTuple({
+          "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
           town: Cl.tuple({
@@ -472,14 +478,26 @@ describe("campaigns", () => {
         // Because there are no more soldiers to send
         expect(thisFailsToo.result).toBeErr(Cl.uint(43))
 
-        const raidPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+        const invaderState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
         const remainingArmy = trainingAmount- raidArmyAmount
-        expect(raidPlayerState).toBeTuple({
+        expect(invaderState).toBeTuple({
+          "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
           town: Cl.tuple({
             army: Cl.list(Array(3).fill(Cl.int(remainingArmy))),
+            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          })
+        })
+
+        const defenderState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address2)).result
+        expect(defenderState).toBeTuple({
+          "last-raid": Cl.uint(txEventValue),
+          pawns: Cl.int(100),
+          resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
+          town: Cl.tuple({
+            army: Cl.list(Array(3).fill(Cl.int(0))),
             defenses: Cl.list([Cl.int(20), Cl.int(20)])
           })
         })

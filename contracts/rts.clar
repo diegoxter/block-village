@@ -73,6 +73,7 @@
     ends: uint })
 
 (define-map player-assets { player: principal } {
+    last-raid: uint,
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
     town: {
@@ -370,6 +371,9 @@
                 army: (map - (get army (get town player)) army)})
             }))
 
+            (map-set player-assets {player: victim}
+            (merge (get-player victim) { last-raid: (get-current-time) }))
+
             (map-set raids {invader: tx-sender, defender: victim} {
                 timestamp: (get-current-time),
                 army: army,
@@ -396,6 +400,7 @@
 
 (define-read-only (get-player (player principal))
     (default-to {
+        last-raid: u0,
         resources: (list 50 50 50 50 50), ;; wood rock food gold metal
         pawns: 100,
         town: {
