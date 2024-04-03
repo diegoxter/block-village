@@ -25,6 +25,24 @@ const returnCampaignResources: ()=> Array<IntCV> = () => {
   return Array(4).fill(Cl.int(2000));
 }
 
+const returnUnitResourceCostIndex: (index: number) => number[] = (index) => {
+  switch (index) {
+    case 0:
+      return [1, 5];
+
+    case 1:
+      return [0, 4];
+
+    case 2:
+      return [2, 8];
+
+    default:
+      return [];
+  }
+}
+
+const returnResources = () => { return Array(5).fill(50) }
+
 /*
   The test below is an example. To learn more, read the testing documentation here:
   https://docs.hiro.so/clarinet/feature-guides/test-contract-with-clarinet-sdk
@@ -472,7 +490,7 @@ describe("campaigns", () => {
         const thisFailsToo = simnet.callPublicFn(
           'rts',
           'send-raid',
-          [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(raidArmyAmount+3)))],
+          [Cl.principal(address1), Cl.list(Array(3).fill(Cl.int(raidArmyAmount+3)))],
           address2
         )
         // Because there are no more soldiers to send
@@ -511,6 +529,361 @@ describe("campaigns", () => {
           success: Cl.none(),
           timestamp: Cl.uint(txEventValue)
         }))
+      })
+    })
+
+    it("raids respect the time limit", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      const trainingAmount = 5
+      for (let index = 0; index < 3; index++) { // get some army
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(trainingAmount)],
+          address2
+        );
+
+        simnet.mineEmptyBlocks(5)
+
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)], // we are claiming the trained soldiers here
+          address2
+        )
+      }
+      const thisPass: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(2)))],
+        address2
+      )
+      const txEventValue: bigint = thisPass.events[0].data.value.value
+
+      const initialRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+        invader: Cl.principal(address2),
+        defender: Cl.principal(address3)
+      }))
+      expect(initialRaidStatus).toBeSome(Cl.tuple(
+        {
+          army: Cl.list(Array(3).fill(Cl.int(2))),
+          success: Cl.none(),
+          timestamp: Cl.uint(txEventValue)
+        })
+      )
+
+      const thisFails = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(2)))],
+        address2
+      )
+      expect(thisFails.result).toBeErr(Cl.uint(45))
+
+      simnet.mineEmptyBlocks(6)
+
+      const txResponse = simnet.callPublicFn(
+        'rts',
+        'return-raid',
+        [Cl.principal(address3)],
+        address2
+      )
+      expect(txResponse.result).toBeOk(Cl.bool(true))
+      const finalRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+        invader: Cl.principal(address2),
+        defender: Cl.principal(address3)
+      }))
+      expect(finalRaidStatus).toBeSome(Cl.tuple(
+        {
+          army: Cl.list(Array(3).fill(Cl.int(0))),
+          success: Cl.some(Cl.bool(true)),
+          timestamp: Cl.uint(txEventValue)
+        })
+      )
+
+      const thisFailsToo: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(2)))],
+        address2
+      )
+      expect(thisFailsToo.result).toBeErr(Cl.uint(44))
+    })
+
+    it("raids calculate the winner based on unit amount", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      const trainingAmount = 5
+      for (let index = 0; index < 3; index++) { // get some army
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(trainingAmount)],
+          address2
+        );
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(2)],
+          address3
+        );
+
+        simnet.mineEmptyBlocks(5)
+
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address2
+        )
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address3
+        )
+      }
+
+      const sendRaid: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(5)))],
+        address2
+      )
+      const txEventValue: bigint = sendRaid.events[0].data.value.value
+
+      simnet.mineEmptyBlocks(7)
+
+      simnet.callPublicFn(
+        'rts',
+        'return-raid',
+        [Cl.principal(address3)],
+        address2
+      )
+
+      const firstRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+        invader: Cl.principal(address2),
+        defender: Cl.principal(address3)
+      }))
+      expect(firstRaidStatus).toBeSome(Cl.tuple(
+        {
+          army: Cl.list(Array(3).fill(Cl.int(0))),
+          success: Cl.some(Cl.bool(true)),
+          timestamp: Cl.uint(txEventValue)
+        })
+      )
+
+      const sendSecondRaid: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address2), Cl.list(Array(3).fill(Cl.int(2)))],
+        address3
+      )
+      const secondRaidEventValue: bigint = sendSecondRaid.events[0].data.value.value
+      simnet.mineEmptyBlocks(7)
+
+      const txResponse = simnet.callPublicFn(
+        'rts',
+        'return-raid',
+        [Cl.principal(address2)],
+        address3
+      )
+      expect(txResponse.result).toBeOk(Cl.bool(true))
+
+      const finalRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+        invader: Cl.principal(address3),
+        defender: Cl.principal(address2)
+      }))
+      expect(finalRaidStatus).toBeSome(Cl.tuple(
+        {
+          army: Cl.list(Array(3).fill(Cl.int(0))),
+          success: Cl.some(Cl.bool(false)),
+          timestamp: Cl.uint(secondRaidEventValue)
+        })
+      )
+
+
+    })
+
+    it("raids calculate the loot - for winners", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      const trainingAmount = 5
+
+      const firstPlayerResources = returnResources()
+      const secondPlayerResources = returnResources()
+
+      for (let index = 0; index < 3; index++) { // get some army
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(trainingAmount)],
+          address2
+        );
+        const [i, amount] = returnUnitResourceCostIndex(index)
+        firstPlayerResources[i] -= amount * trainingAmount // aqui
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(2)],
+          address3
+        );
+        secondPlayerResources[i] -= amount * (trainingAmount - 3)
+        simnet.mineEmptyBlocks(5)
+
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address2
+        )
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address3
+        )
+      }
+
+      const tx: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(5)))],
+        address2
+      )
+      const txEventValue: bigint = tx.events[0].data.value.value
+
+      simnet.mineEmptyBlocks(7)
+
+      simnet.callPublicFn(
+        'rts',
+        'return-raid',
+        [Cl.principal(address3)],
+        address2
+      )
+
+      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const secondPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address3)).result
+      expect(firstPlayerState).toBeTuple({
+        "last-raid": Cl.uint(0),
+        resources: Cl.list(Array(5).fill(null).map((_, index) => {
+          return Cl.int(firstPlayerResources[index] + Math.floor((secondPlayerResources[index]*10)/100));
+        })),
+        pawns: Cl.int(85),
+        town: Cl.tuple({
+          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          army: Cl.list(Array(3).fill(Cl.int(trainingAmount)))
+        })
+      })
+      expect(secondPlayerState).toBeTuple({
+        "last-raid": Cl.uint(txEventValue),
+        resources: Cl.list(Array(5).fill(null).map((_, index) => {
+          return Cl.int(secondPlayerResources[index] - Math.floor((secondPlayerResources[index]*10)/100));
+        })),
+        pawns: Cl.int(94),
+        town: Cl.tuple({
+          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          army: Cl.list(Array(3).fill(Cl.int(2)))
+        })
+      })
+    })
+
+    it("raids calculate the loot - for losers", () => {
+      simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      const firstPlayerTrainingAmount = 1
+      const secondPlayerTrainingAmount = firstPlayerTrainingAmount + 3
+      const firstPlayerResources = returnResources()
+      const secondPlayerResources = returnResources()
+
+      for (let index = 0; index < 3; index++) { // get some army
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(firstPlayerTrainingAmount)],
+          address2
+        );
+        const [i, amount] = returnUnitResourceCostIndex(index)
+        firstPlayerResources[i] -= amount * firstPlayerTrainingAmount
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(secondPlayerTrainingAmount)],
+          address3
+        );
+        secondPlayerResources[i] -= amount * (secondPlayerTrainingAmount)
+
+        simnet.mineEmptyBlocks(5)
+
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address2
+        )
+        // defender's defense
+        simnet.callPublicFn(
+          'rts',
+          'train-soldiers',
+          [Cl.uint(index), Cl.int(0)],
+          address3
+        )
+      }
+
+      const tx: any = simnet.callPublicFn(
+        'rts',
+        'send-raid',
+        [Cl.principal(address3), Cl.list(Array(3).fill(Cl.int(firstPlayerTrainingAmount)))],
+        address2
+      )
+      const txEventValue: bigint = tx.events[0].data.value.value
+
+      simnet.mineEmptyBlocks(7)
+
+      simnet.callPublicFn(
+        'rts',
+        'return-raid',
+        [Cl.principal(address3)],
+        address2
+      )
+
+      const raid = simnet.getMapEntry('rts', 'raids', Cl.tuple({
+        invader: Cl.principal(address2),
+        defender: Cl.principal(address3)
+      }))
+      expect(raid).toBeSome(Cl.tuple(
+        {
+          army: Cl.list(Array(3).fill(Cl.int(0))),
+          success: Cl.some(Cl.bool(false)), // address2 lost
+          timestamp: Cl.uint(txEventValue)
+        })
+      )
+
+      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const secondPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address3)).result
+      expect(firstPlayerState).toBeTuple({
+        "last-raid": Cl.uint(0),
+        resources: Cl.list(Array(5).fill(null).map((_, index) => {
+          return Cl.int(firstPlayerResources[index]);
+        })), // aqui
+        pawns: Cl.int(100-(firstPlayerTrainingAmount*3)),
+        town: Cl.tuple({
+          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          army: Cl.list(Array(3).fill(Cl.int(firstPlayerTrainingAmount)))
+        })
+      })
+      expect(secondPlayerState).toBeTuple({
+        "last-raid": Cl.uint(txEventValue),
+        resources: Cl.list(Array(5).fill(null).map((_, index) => {
+          return Cl.int(secondPlayerResources[index]);
+        })),
+        pawns: Cl.int(100-(secondPlayerTrainingAmount*3)),
+        town: Cl.tuple({
+          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          army: Cl.list(Array(3).fill(Cl.int(secondPlayerTrainingAmount)))
+        })
       })
     })
 
