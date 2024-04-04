@@ -43,6 +43,10 @@ const returnUnitResourceCostIndex: (index: number) => number[] = (index) => {
 
 const returnResources = (amount = 50) => { return Array(5).fill(amount) }
 
+const returnClList = (length = 5, value = 50) => Cl.list(Array(length).fill(null).map(() => {
+  return Cl.int(value);
+}))
+
 /*
   The test below is an example. To learn more, read the testing documentation here:
   https://docs.hiro.so/clarinet/feature-guides/test-contract-with-clarinet-sdk
@@ -511,9 +515,7 @@ describe("campaigns", () => {
           })
         })
 
-        const resourceSnapshot = Cl.list(Array(5).fill(null).map(() => {
-          return Cl.int(50);
-        }))
+        const resourceSnapshot = returnClList()
 
         const defenderState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address2)).result
         expect(defenderState).toBeTuple({
@@ -534,9 +536,7 @@ describe("campaigns", () => {
           army: Cl.list(Array(3).fill(Cl.int(raidArmyAmount))),
           "raid-snapshot": Cl.tuple({
             resources: resourceSnapshot,
-            'defender-army': Cl.list(Array(3).fill(null).map(() => {
-              return Cl.int(0);
-            }))
+            'defender-army': returnClList(3, 0)
           }),
           success: Cl.none(),
           timestamp: Cl.uint(txEventValue)

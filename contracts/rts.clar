@@ -1,7 +1,7 @@
 
-;; title: rts
-;; version:
-;; summary:
+;; title: block-village
+;; version: 0.0.1
+;; summary: Blockchain based strategy game
 ;; description:
 
 ;; traits
@@ -47,13 +47,13 @@
 ;; data vars
 ;; Campaing related
 (define-data-var campaign-id-tracker uint u1)
+
+
 ;; Vars that can be set via smart contract interactions (TO DO)
 (define-data-var campaing-duration uint u5)
-
 ;; Gathering related
 ;; wood / rock / food / gold
 (define-data-var resource-mining-difficulty (list 5 uint) (list u2 u3 u3 u6 u12))
-
 ;; Military related
 ;; (in seconds) 0 soldiers / 1 archers / 2 cavalry
 (define-data-var training-time-required (list 3 uint) (list u1800 u2400 u3600))
