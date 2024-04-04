@@ -139,6 +139,9 @@
 
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
             begins: (+ (get-current-time) u86400),
+            ;; TO DO do something with this
+            ;; maybe have the 'campaing' be seasonal and resources
+            ;; are limited
             map-resources: map-resources,
             ends: (+ (get-current-time) (* u86400 (var-get campaing-duration)))})
 
@@ -427,7 +430,12 @@
             (map-set player-assets {player: tx-sender}
                 (merge player {
                     town: (merge (get town player) {
-                        army: (map + (get army (get town player)) (get army raid))}),
+                        army: (map +
+                            (get army (get town player))
+                            (if (get attacker-is-winner raid-winner-info)
+                                (get army raid)
+                                ;; if the attacker lost, he loses some units
+                                (map get-half (get army raid))))}),
                     resources: (map +
                         (get resources player)
                         (if (get attacker-is-winner raid-winner-info)
@@ -467,17 +475,9 @@
 (define-read-only (get-campaign (campaign-id uint))
     (map-get? campaigns {id: campaign-id}))
 
-(define-read-only (get-player (player principal))
-    (default-to {
-        last-raid: u0,
-        resources: (list 50 50 50 50 50), ;; wood rock food gold metal
-        pawns: 100,
-        town: {
-            defenses: 20, ;; hit-points / walls
-            army: (list 0 0 0) ;; soldiers / archers / cavalry
-    }}
-        (map-get? player-assets {player: player})
-))
+(define-read-only (get-player-resources (player principal))
+    (get resources (get-player player))
+)
 
 (define-read-only (get-gathering-expeditions-per-player
     (player principal) (r-id uint) (e-id uint))
@@ -487,7 +487,6 @@
             resource-id: r-id, ;; can be wood / rock / food / gold
             expedition-id: e-id
 })))
-
 
 (define-read-only (get-occupied-units-per-player)
     (default-to {
@@ -544,6 +543,18 @@
 
 
 ;; private functions
+(define-private (get-player (player principal))
+    (default-to {
+        last-raid: u0,
+        resources: (list 50 50 50 50 50), ;; wood rock food gold metal
+        pawns: 100,
+        town: {
+            defenses: 20, ;; hit-points / walls
+            army: (list 0 0 0) ;; soldiers / archers / cavalry
+    }}
+        (map-get? player-assets {player: player})
+))
+
 (define-private (get-current-time)
     (unwrap-panic (get-block-info? time (- block-height u1)))
 )
@@ -699,4 +710,6 @@
     (>
         (unwrap-panic (element-at? compared-list u0))
         (unwrap-panic (element-at? compared-list u1))))
+(define-private (get-half (unit int))
+    (/ unit 2))
 ;;

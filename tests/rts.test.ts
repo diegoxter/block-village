@@ -198,7 +198,7 @@ describe("campaigns", () => {
             address2)
           ).result
 
-          const newPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+          const newPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
           baseValues[i] += Number(gatheredResource.value)
           const resourcesList = [Cl.int(baseValues[0]), Cl.int(baseValues[1]), Cl.int(baseValues[2]), Cl.int(baseValues[3]), Cl.int(baseValues[4])]
@@ -221,7 +221,7 @@ describe("campaigns", () => {
     it("Allows resource refining, respecting due process", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
 
-      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(firstPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
@@ -300,7 +300,7 @@ describe("campaigns", () => {
       );
       expect(thisFailsTooSoon.result).toBeErr(Cl.uint(31))
 
-      const newPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const newPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(newPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         pawns: Cl.int(90),
@@ -323,7 +323,7 @@ describe("campaigns", () => {
 
       const refinedMetal = Number(Math.floor((woodSent * rockSent) / 12).toFixed(0))
 
-      const finalPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const finalPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(finalPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
@@ -437,7 +437,7 @@ describe("campaigns", () => {
           })
         }
 
-        const lastPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+        const lastPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
         expect(lastPlayerState).toBeTuple({
           "last-raid": Cl.uint(0),
@@ -498,7 +498,7 @@ describe("campaigns", () => {
         // Because there are no more soldiers to send
         expect(thisFailsToo.result).toBeErr(Cl.uint(43))
 
-        const invaderState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
+        const invaderState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
         const remainingArmy = trainingAmount- raidArmyAmount
         expect(invaderState).toBeTuple({
@@ -515,7 +515,7 @@ describe("campaigns", () => {
           return Cl.int(50);
         }))
 
-        const defenderState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address2)).result
+        const defenderState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address2)).result
         expect(defenderState).toBeTuple({
           "last-raid": Cl.uint(txEventValue),
           pawns: Cl.int(100),
@@ -810,8 +810,8 @@ describe("campaigns", () => {
         address2
       )
 
-      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
-      const secondPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address3)).result
+      const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const secondPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address3)).result
       expect(firstPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         resources: Cl.list(Array(5).fill(null).map((_, index) => {
@@ -836,7 +836,7 @@ describe("campaigns", () => {
       })
     })
 
-    it("raids calculate the loot - for losers", () => {
+    it("raids calculate losers penalty", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
       const firstPlayerTrainingAmount = 1
       const secondPlayerTrainingAmount = firstPlayerTrainingAmount + 3
@@ -915,8 +915,8 @@ describe("campaigns", () => {
         })
       )
 
-      const firstPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address2)], address2)).result
-      const secondPlayerState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address3)).result
+      const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
+      const secondPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address3)).result
       expect(firstPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         resources: Cl.list(Array(5).fill(null).map((_, index) => {
@@ -925,7 +925,7 @@ describe("campaigns", () => {
         pawns: Cl.int(100-(firstPlayerTrainingAmount*3)),
         town: Cl.tuple({
           defenses: Cl.int(20),
-          army: Cl.list(Array(3).fill(Cl.int(firstPlayerTrainingAmount)))
+          army: Cl.list(Array(3).fill(Cl.int(Math.floor(firstPlayerTrainingAmount / 2))))
         })
       })
       expect(secondPlayerState).toBeTuple({
