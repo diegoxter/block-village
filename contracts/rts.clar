@@ -99,6 +99,7 @@
 (define-map raids { invader: principal, defender: principal } {
     timestamp: uint,
     army: (list 3 int), ;; soldiers / archers / cavalry
+    raid-snapshot: {resources: (list 5 int), defender-army: (list 3 int)},
     success: (optional bool)
 })
 
@@ -390,6 +391,9 @@
             (map-set raids {invader: tx-sender, defender: victim} {
                 timestamp: (get-current-time),
                 army: army,
+                raid-snapshot: {
+                    resources: (get resources (get-player victim)),
+                    defender-army: (get army (get town (get-player victim)))},
                 success: none
             })
 
@@ -405,7 +409,9 @@
                 (defender (get-player victim))
                 (raid (get-raid tx-sender victim))
                 (raid-winner-info
-                    (get-raid-winner (get army raid) (get army (get town defender))))
+                    (get-raid-winner
+                        (get army raid)
+                        (get defender-army (get raid-snapshot raid))))
             )
 
             (asserts! (>=
@@ -426,7 +432,8 @@
                         (get resources player)
                         (if (get attacker-is-winner raid-winner-info)
                             (return-looted-resources
-                                (get loot-won raid-winner-info) (get resources defender))
+                                (get loot-won raid-winner-info)
+                                (get resources (get raid-snapshot raid)))
                             (list 0 0 0 0 0)))
             }))
 
@@ -436,7 +443,8 @@
                         (get resources defender)
                         (if (get attacker-is-winner raid-winner-info)
                             (return-looted-resources
-                                (get loot-won raid-winner-info) (get resources defender))
+                                (get loot-won raid-winner-info)
+                                (get resources (get raid-snapshot raid)))
                             (list 0 0 0 0 0)))
             }))
 
@@ -444,7 +452,8 @@
                 (merge raid {
                 army: (list 0 0 0),
                 success: (some
-                    (get attacker-is-winner raid-winner-info))
+                    (get attacker-is-winner raid-winner-info)),
+                raid-snapshot: {resources:(list 0 0 0 0 0), defender-army: (list 0 0 0)}
             }))
 
             (ok true)
@@ -499,6 +508,7 @@
     (default-to {
         timestamp: u0,
         army: (list 0 0 0), ;; soldiers / archers / cavalry
+        raid-snapshot: {resources: (list 0 0 0 0 0), defender-army: (list 0 0 0)},
         success: none
     } (map-get? raids { invader: invader, defender: defender }))
 )

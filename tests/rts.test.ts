@@ -41,7 +41,7 @@ const returnUnitResourceCostIndex: (index: number) => number[] = (index) => {
   }
 }
 
-const returnResources = () => { return Array(5).fill(50) }
+const returnResources = (amount = 50) => { return Array(5).fill(amount) }
 
 /*
   The test below is an example. To learn more, read the testing documentation here:
@@ -225,7 +225,9 @@ describe("campaigns", () => {
       expect(firstPlayerState).toBeTuple({
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
-        resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
+        resources: Cl.list(Array(5).fill(null).map(() => {
+          return Cl.int(50);
+        })),
         town: Cl.tuple({
           army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
           defenses: Cl.int(20)
@@ -509,11 +511,15 @@ describe("campaigns", () => {
           })
         })
 
+        const resourceSnapshot = Cl.list(Array(5).fill(null).map(() => {
+          return Cl.int(50);
+        }))
+
         const defenderState = (simnet.callReadOnlyFn("rts","get-player", [Cl.principal(address3)], address2)).result
         expect(defenderState).toBeTuple({
           "last-raid": Cl.uint(txEventValue),
           pawns: Cl.int(100),
-          resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
+          resources: resourceSnapshot,
           town: Cl.tuple({
             army: Cl.list(Array(3).fill(Cl.int(0))),
             defenses: Cl.int(20)
@@ -526,6 +532,12 @@ describe("campaigns", () => {
         }))
         expect(initialRaidStatus).toBeSome(Cl.tuple({
           army: Cl.list(Array(3).fill(Cl.int(raidArmyAmount))),
+          "raid-snapshot": Cl.tuple({
+            resources: resourceSnapshot,
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.none(),
           timestamp: Cl.uint(txEventValue)
         }))
@@ -564,9 +576,19 @@ describe("campaigns", () => {
         invader: Cl.principal(address2),
         defender: Cl.principal(address3)
       }))
+
+      const resourceSnapshot = returnResources()
       expect(initialRaidStatus).toBeSome(Cl.tuple(
         {
           army: Cl.list(Array(3).fill(Cl.int(2))),
+          "raid-snapshot": Cl.tuple({
+            resources: Cl.list(Array(5).fill(null).map((_, index) => {
+              return Cl.int(resourceSnapshot[index]);
+            })),
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.none(),
           timestamp: Cl.uint(txEventValue)
         })
@@ -596,6 +618,14 @@ describe("campaigns", () => {
       expect(finalRaidStatus).toBeSome(Cl.tuple(
         {
           army: Cl.list(Array(3).fill(Cl.int(0))),
+          "raid-snapshot": Cl.tuple({
+            resources: Cl.list(Array(5).fill(null).map(() => {
+              return Cl.int(0);
+            })),
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.some(Cl.bool(true)),
           timestamp: Cl.uint(txEventValue)
         })
@@ -669,6 +699,14 @@ describe("campaigns", () => {
       expect(firstRaidStatus).toBeSome(Cl.tuple(
         {
           army: Cl.list(Array(3).fill(Cl.int(0))),
+          "raid-snapshot": Cl.tuple({
+            resources: Cl.list(Array(5).fill(null).map(() => {
+              return Cl.int(0);
+            })),
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.some(Cl.bool(true)),
           timestamp: Cl.uint(txEventValue)
         })
@@ -698,6 +736,14 @@ describe("campaigns", () => {
       expect(finalRaidStatus).toBeSome(Cl.tuple(
         {
           army: Cl.list(Array(3).fill(Cl.int(0))),
+          "raid-snapshot": Cl.tuple({
+            resources: Cl.list(Array(5).fill(null).map(() => {
+              return Cl.int(0);
+            })),
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.some(Cl.bool(false)),
           timestamp: Cl.uint(secondRaidEventValue)
         })
@@ -856,6 +902,14 @@ describe("campaigns", () => {
       expect(raid).toBeSome(Cl.tuple(
         {
           army: Cl.list(Array(3).fill(Cl.int(0))),
+          "raid-snapshot": Cl.tuple({
+            resources: Cl.list(Array(5).fill(null).map(() => {
+              return Cl.int(0);
+            })),
+            'defender-army': Cl.list(Array(3).fill(null).map(() => {
+              return Cl.int(0);
+            }))
+          }),
           success: Cl.some(Cl.bool(false)), // address2 lost
           timestamp: Cl.uint(txEventValue)
         })
