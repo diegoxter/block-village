@@ -81,7 +81,7 @@
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
     town: {
-        defenses: (list 2 int), ;; hit-points / walls
+        defenses: int, ;; hit-points
         army: (list 3 int), ;; soldiers / archers / cavalry
 }})
 
@@ -464,7 +464,7 @@
         resources: (list 50 50 50 50 50), ;; wood rock food gold metal
         pawns: 100,
         town: {
-            defenses: (list 20 20), ;; hit-points / walls
+            defenses: 20, ;; hit-points / walls
             army: (list 0 0 0) ;; soldiers / archers / cavalry
     }}
         (map-get? player-assets {player: player})

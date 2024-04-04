@@ -112,7 +112,7 @@ describe("campaigns", () => {
           ),
           pawns: Cl.int(playerPawnsStateTracker-(24 * (index+1))),
           town: Cl.tuple({
-            defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+            defenses: Cl.int(20),
             army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)])
           })
         }))
@@ -211,7 +211,7 @@ describe("campaigns", () => {
             resources: Cl.list(resourcesList),
             town: Cl.tuple({
               army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-              defenses: Cl.list([Cl.int(20), Cl.int(20)])
+              defenses: Cl.int(20)
             })
           })
         }
@@ -228,7 +228,7 @@ describe("campaigns", () => {
         resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
         town: Cl.tuple({
           army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          defenses: Cl.int(20)
         })
       })
 
@@ -305,7 +305,7 @@ describe("campaigns", () => {
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50)]),
         town: Cl.tuple({
           army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          defenses: Cl.int(20)
         })
       })
 
@@ -328,7 +328,7 @@ describe("campaigns", () => {
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50+refinedMetal)]),
         town: Cl.tuple({
           army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.list([Cl.int(20), Cl.int(20)])
+          defenses: Cl.int(20)
         })
       })
       const finalMiningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
@@ -443,7 +443,7 @@ describe("campaigns", () => {
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
           town: Cl.tuple({
             army: Cl.list([Cl.int(armyArray[0]), Cl.int(armyArray[1]), Cl.int(armyArray[2])]),
-            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+            defenses: Cl.int(20)
           })
         })
       })
@@ -505,7 +505,7 @@ describe("campaigns", () => {
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
           town: Cl.tuple({
             army: Cl.list(Array(3).fill(Cl.int(remainingArmy))),
-            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+            defenses: Cl.int(20)
           })
         })
 
@@ -516,7 +516,7 @@ describe("campaigns", () => {
           resources: Cl.list([Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]),
           town: Cl.tuple({
             army: Cl.list(Array(3).fill(Cl.int(0))),
-            defenses: Cl.list([Cl.int(20), Cl.int(20)])
+            defenses: Cl.int(20)
           })
         })
 
@@ -773,7 +773,7 @@ describe("campaigns", () => {
         })),
         pawns: Cl.int(85),
         town: Cl.tuple({
-          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          defenses: Cl.int(20),
           army: Cl.list(Array(3).fill(Cl.int(trainingAmount)))
         })
       })
@@ -784,7 +784,7 @@ describe("campaigns", () => {
         })),
         pawns: Cl.int(94),
         town: Cl.tuple({
-          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          defenses: Cl.int(20),
           army: Cl.list(Array(3).fill(Cl.int(2)))
         })
       })
@@ -870,7 +870,7 @@ describe("campaigns", () => {
         })), // aqui
         pawns: Cl.int(100-(firstPlayerTrainingAmount*3)),
         town: Cl.tuple({
-          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          defenses: Cl.int(20),
           army: Cl.list(Array(3).fill(Cl.int(firstPlayerTrainingAmount)))
         })
       })
@@ -881,7 +881,7 @@ describe("campaigns", () => {
         })),
         pawns: Cl.int(100-(secondPlayerTrainingAmount*3)),
         town: Cl.tuple({
-          defenses: Cl.list([Cl.int(20), Cl.int(20)]),
+          defenses: Cl.int(20),
           army: Cl.list(Array(3).fill(Cl.int(secondPlayerTrainingAmount)))
         })
       })
