@@ -447,13 +447,13 @@
 
             (map-set player-assets {player: victim}
                 (merge defender {
-                    resources: (map -
+                    resources: (map return-zero-if-negative (map -
                         (get resources defender)
                         (if (get attacker-is-winner raid-winner-info)
                             (return-looted-resources
                                 (get loot-won raid-winner-info)
                                 (get resources (get raid-snapshot raid)))
-                            (list 0 0 0 0 0)))
+                            (list 0 0 0 0 0))))
             }))
 
             (map-set raids {invader: tx-sender, defender: victim}
@@ -704,8 +704,11 @@
     (/ (* resource percentage) 100)
 )
 
-(define-private (more-than-zero (num int)) (> num 0))
 (define-private (not-less-than-zero (num int)) (not (< num 0)))
+(define-private (return-zero-if-negative (num int))
+    (if (not (more-than-zero num)) 0 num)
+)
+(define-private (more-than-zero (num int)) (> num 0))
 (define-private (higher-than (compared-list (list 2 int)))
     (>
         (unwrap-panic (element-at? compared-list u0))
