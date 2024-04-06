@@ -25,6 +25,8 @@
 (define-constant err-invalid-gathering-option (err u23))
 (define-constant err-not-enough-wood (err u24))
 (define-constant err-not-enough-rock (err u25))
+(define-constant err-undamaged-defenses (err u26))
+(define-constant err-reparing-not-done (err u27))
 
 ;; Invalid expedition errors
 (define-constant err-invalid-expedition (err u30))
@@ -140,7 +142,7 @@
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
             begins: (+ (get-current-time) u86400),
             ;; TO DO do something with this
-            ;; maybe have the 'campaing' be seasonal and resources
+            ;; maybe have the 'campaign' be seasonal and resources
             ;; are limited
             map-resources: map-resources,
             ends: (+ (get-current-time) (* u86400 (var-get campaing-duration)))})
@@ -360,9 +362,62 @@
     )
 ))
 
-(define-public (repair-town)
-;; TO DO
-(ok true))
+(define-public (repair-town (wood-sent int) (rock-sent int))
+    (let (
+            (player (get-player tx-sender))
+            (occupied-units (get-occupied-units-per-player))
+            (defense-debt (- 20 (get defenses (get town player))))
+        )
+        (if (> (get pawns (get repairing occupied-units)) 0)
+            (begin ;; if there are pawns assigned
+                (asserts! (>= ;; and at lest 15 minutes have passed
+                    (get-current-time)
+                    (+ (get timestamp (get repairing occupied-units)) u900))
+                err-reparing-not-done)
+
+                ;; TO DO
+            )
+            (begin ;; if there are NO pawns assigned...
+                ;; ...and the defenses are less than max...
+                (asserts! (< defense-debt 0) err-undamaged-defenses)
+                ;; ...and the player has enough resources...
+                (asserts! (and
+                    (>= (unwrap-panic (element-at? (get resources player) u0)) wood-sent)
+                    (>= (unwrap-panic (element-at? (get resources player) u1)) rock-sent)
+                )
+                err-invalid-resource-amount)
+                ;; ... and the quantities are correct...
+                (asserts! (and
+                    ;; ... and resources sent are at least 2 a and 1
+                    (and (>= wood-sent 2) (>= rock-sent 1))
+                    (and
+                        ;; ...and the player sent the correct amount of wood...
+                        (is-eq (* 2 defense-debt) wood-sent)
+                        ;; ... and rock
+                        (is-eq defense-debt rock-sent)))
+                err-invalid-resource-amount)
+                (try! (has-enough-pawns 5)) ;; ... and there are enough pawns...
+
+                ;; we take the resources from the player
+                (map-set player-assets {player: tx-sender}
+                (merge player {
+                    pawns: (- (get pawns player) 5),
+                    resources: (map -
+                        (get resources player)
+                        (list wood-sent rock-sent 0 0 0))
+                }))
+
+                (map-set player-pawns-in-task {player: tx-sender}
+                    (merge occupied-units {
+                    repairing: { pawns: 5, timestamp: (get-current-time) }
+                    }
+                ))
+             )
+         )
+
+        (ok true)
+    )
+)
 
 ;; #[allow(unchecked_data)]
 (define-public (send-raid (victim principal) (army (list 3 int)))
