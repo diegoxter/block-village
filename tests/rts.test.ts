@@ -122,10 +122,7 @@ describe("campaigns", () => {
             [Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]
           ),
           pawns: Cl.int(playerPawnsStateTracker-(24 * (index+1))),
-          town: Cl.tuple({
-            defenses: Cl.int(20),
-            army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)])
-          })
+          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)])
         }))
 
         const miningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
@@ -220,10 +217,7 @@ describe("campaigns", () => {
             "last-raid": Cl.uint(0),
             pawns: Cl.int(pawnTracker),
             resources: Cl.list(resourcesList),
-            town: Cl.tuple({
-              army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-              defenses: Cl.int(20)
-            })
+            army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
           })
         }
       }
@@ -239,10 +233,7 @@ describe("campaigns", () => {
         resources: Cl.list(Array(5).fill(null).map(() => {
           return Cl.int(50);
         })),
-        town: Cl.tuple({
-          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.int(20)
-        })
+        army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
       })
 
       const thisFailsWoodHigh: any = simnet.callPublicFn(
@@ -316,10 +307,7 @@ describe("campaigns", () => {
         "last-raid": Cl.uint(0),
         pawns: Cl.int(90),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50)]),
-        town: Cl.tuple({
-          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.int(20)
-        })
+        army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
       })
 
       simnet.mineEmptyBlocks(3)
@@ -339,10 +327,7 @@ describe("campaigns", () => {
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50+refinedMetal)]),
-        town: Cl.tuple({
-          army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
-          defenses: Cl.int(20)
-        })
+        army: Cl.list([Cl.int(0), Cl.int(0), Cl.int(0)]),
       })
       const finalMiningPawnState = simnet.getMapEntry('rts','gathering-expeditions-per-player', Cl.tuple({
         player: Cl.principal(address2),
@@ -453,10 +438,7 @@ describe("campaigns", () => {
           "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
-          town: Cl.tuple({
-            army: Cl.list([Cl.int(armyArray[0]), Cl.int(armyArray[1]), Cl.int(armyArray[2])]),
-            defenses: Cl.int(20)
-          })
+          army: Cl.list([Cl.int(armyArray[0]), Cl.int(armyArray[1]), Cl.int(armyArray[2])]),
         })
       })
 
@@ -515,10 +497,7 @@ describe("campaigns", () => {
           "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
-          town: Cl.tuple({
-            army: Cl.list(Array(3).fill(Cl.int(remainingArmy))),
-            defenses: Cl.int(20)
-          })
+          army: Cl.list(Array(3).fill(Cl.int(remainingArmy))),
         })
 
         const resourceSnapshot = returnClList()
@@ -528,10 +507,7 @@ describe("campaigns", () => {
           "last-raid": Cl.uint(txEventValue),
           pawns: Cl.int(100),
           resources: resourceSnapshot,
-          town: Cl.tuple({
-            army: Cl.list(Array(3).fill(Cl.int(0))),
-            defenses: Cl.int(20)
-          })
+          army: Cl.list(Array(3).fill(Cl.int(0))),
         })
 
         const initialRaidStatus = simnet.getMapEntry('rts', 'raids', Cl.tuple({
@@ -802,19 +778,13 @@ describe("campaigns", () => {
           "last-raid": Cl.uint(0),
           resources: returnClList(5, [firstPlayerResources, secondPlayerResources], true),
           pawns: Cl.int(85),
-          town: Cl.tuple({
-            defenses: Cl.int(20),
-            army: Cl.list(Array(3).fill(Cl.int(trainingAmount)))
-          })
+          army: Cl.list(Array(3).fill(Cl.int(trainingAmount)))
         })
         expect(secondPlayerState).toBeTuple({
           "last-raid": Cl.uint(txEventValue),
           resources: returnClList(5, [secondPlayerResources, secondPlayerResources], true, false),
           pawns: Cl.int(94),
-          town: Cl.tuple({
-            defenses: Cl.int(20),
-            army: Cl.list(Array(3).fill(Cl.int(2)))
-          })
+          army: Cl.list(Array(3).fill(Cl.int(2)))
         })
       })
 
@@ -899,19 +869,13 @@ describe("campaigns", () => {
           "last-raid": Cl.uint(0),
           resources: returnClList(5, firstPlayerResources),
           pawns: Cl.int(100-(firstPlayerTrainingAmount*3)),
-          town: Cl.tuple({
-            defenses: Cl.int(20),
-            army: Cl.list(Array(3).fill(Cl.int(Math.floor(firstPlayerTrainingAmount / 2))))
-          })
+          army: Cl.list(Array(3).fill(Cl.int(Math.floor(firstPlayerTrainingAmount / 2))))
         })
         expect(secondPlayerState).toBeTuple({
           "last-raid": Cl.uint(txEventValue),
           resources: returnClList(5, secondPlayerResources),
           pawns: Cl.int(100-(secondPlayerTrainingAmount*3)),
-          town: Cl.tuple({
-            defenses: Cl.int(20),
-            army: Cl.list(Array(3).fill(Cl.int(secondPlayerTrainingAmount)))
-          })
+          army: Cl.list(Array(3).fill(Cl.int(secondPlayerTrainingAmount)))
         })
       })
     })

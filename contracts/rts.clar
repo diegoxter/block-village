@@ -82,10 +82,8 @@
     last-raid: uint,
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
-    town: {
-        defenses: int, ;; hit-points
-        army: (list 3 int), ;; soldiers / archers / cavalry
-}})
+    army: (list 3 int) ;; soldiers / archers / cavalry
+})
 
 (define-map player-pawns-in-task { player: principal } {
     training: (list 3 { ;; soldiers / archers / cavalry
@@ -346,78 +344,18 @@
                 ;; ... and send them to the player
                 (map-set player-assets {player: tx-sender}
                     (merge player {
-                        town: (merge
-                            (get town player)
-                            {army: (unwrap-panic (replace-at?
-                                (get army (get town player)) unit-type-index
+                            army: (unwrap-panic (replace-at?
+                                (get army player) unit-type-index
                                 (+
-                                (unwrap-panic (element-at? (get army (get town player)) unit-type-index))
+                                (unwrap-panic (element-at? (get army player) unit-type-index))
                                 (get pawns-training (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))
-                            )))}
-                        )
+                            )))
                     })
                 )
 
             (ok (get pawns-training (unwrap-panic (element-at? (get training occupied-units) unit-type-index)))))
     )
 ))
-
-(define-public (repair-town (wood-sent int) (rock-sent int))
-    (let (
-            (player (get-player tx-sender))
-            (occupied-units (get-occupied-units-per-player))
-            (defense-debt (- 20 (get defenses (get town player))))
-        )
-        (if (> (get pawns (get repairing occupied-units)) 0)
-            (begin ;; if there are pawns assigned
-                (asserts! (>= ;; and at lest 15 minutes have passed
-                    (get-current-time)
-                    (+ (get timestamp (get repairing occupied-units)) u900))
-                err-reparing-not-done)
-
-                ;; TO DO
-            )
-            (begin ;; if there are NO pawns assigned...
-                ;; ...and the defenses are less than max...
-                (asserts! (< defense-debt 0) err-undamaged-defenses)
-                ;; ...and the player has enough resources...
-                (asserts! (and
-                    (>= (unwrap-panic (element-at? (get resources player) u0)) wood-sent)
-                    (>= (unwrap-panic (element-at? (get resources player) u1)) rock-sent)
-                )
-                err-invalid-resource-amount)
-                ;; ... and the quantities are correct...
-                (asserts! (and
-                    ;; ... and resources sent are at least 2 a and 1
-                    (and (>= wood-sent 2) (>= rock-sent 1))
-                    (and
-                        ;; ...and the player sent the correct amount of wood...
-                        (is-eq (* 2 defense-debt) wood-sent)
-                        ;; ... and rock
-                        (is-eq defense-debt rock-sent)))
-                err-invalid-resource-amount)
-                (try! (has-enough-pawns 5)) ;; ... and there are enough pawns...
-
-                ;; we take the resources from the player
-                (map-set player-assets {player: tx-sender}
-                (merge player {
-                    pawns: (- (get pawns player) 5),
-                    resources: (map -
-                        (get resources player)
-                        (list wood-sent rock-sent 0 0 0))
-                }))
-
-                (map-set player-pawns-in-task {player: tx-sender}
-                    (merge occupied-units {
-                    repairing: { pawns: 5, timestamp: (get-current-time) }
-                    }
-                ))
-             )
-         )
-
-        (ok true)
-    )
-)
 
 ;; #[allow(unchecked_data)]
 (define-public (send-raid (victim principal) (army (list 3 int)))
@@ -436,12 +374,11 @@
             (asserts! (fold or
                 (map more-than-zero army) false) err-invalid-army-amount)
             (asserts! (fold and
-                (map not-less-than-zero (map - (get army (get town player)) army)) true) err-invalid-army-amount)
+                (map not-less-than-zero (map - (get army player) army)) true) err-invalid-army-amount)
 
             (map-set player-assets {player: tx-sender}
-            (merge player { town: (merge (get town player) {
-                army: (map - (get army (get town player)) army)})
-            }))
+                (merge player { army: (map - (get army player) army) })
+            )
 
             (map-set player-assets {player: victim}
             (merge (get-player victim) { last-raid: (get-current-time) }))
@@ -451,7 +388,7 @@
                 army: army,
                 raid-snapshot: {
                     resources: (get resources (get-player victim)),
-                    defender-army: (get army (get town (get-player victim)))},
+                    defender-army: (get army (get-player victim))},
                 success: none
             })
 
@@ -484,13 +421,12 @@
 
             (map-set player-assets {player: tx-sender}
                 (merge player {
-                    town: (merge (get town player) {
-                        army: (map +
-                            (get army (get town player))
+                    army: (map +
+                            (get army player)
                             (if (get attacker-is-winner raid-winner-info)
                                 (get army raid)
                                 ;; if the attacker lost, he loses some units
-                                (map get-half (get army raid))))}),
+                                (map get-half (get army raid)))),
                     resources: (map +
                         (get resources player)
                         (if (get attacker-is-winner raid-winner-info)
@@ -603,10 +539,8 @@
         last-raid: u0,
         resources: (list 50 50 50 50 50), ;; wood rock food gold metal
         pawns: 100,
-        town: {
-            defenses: 20, ;; hit-points / walls
-            army: (list 0 0 0) ;; soldiers / archers / cavalry
-    }}
+        army: (list 0 0 0) ;; soldiers / archers / cavalry
+    }
         (map-get? player-assets {player: player})
 ))
 
