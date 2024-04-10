@@ -60,6 +60,7 @@
 ;; (in seconds) 0 soldiers / 1 archers / 2 cavalry
 (define-data-var training-time-required (list 3 uint) (list u1800 u2400 u3600))
 (define-data-var hourly-raid-exclusion-multiplier uint u8)
+(define-data-var defender-boost-percentage int 10)
 (define-data-var required-resource-per-unit-type (list 3 {
     resource-id: uint,
     resource-amount: int
@@ -134,7 +135,7 @@
             err-unended-previous-campaign)
         (asserts!
             (fold and
-            (map more-than-zero map-resources) true) err-invalid-new-campaign-resources)
+            (map is-more-than-zero map-resources) true) err-invalid-new-campaign-resources)
         (asserts! (is-eq (len map-resources) u4) err-invalid-new-campaign-resources)
 
         (map-insert campaigns {id: (var-get campaign-id-tracker)} {
@@ -372,9 +373,9 @@
                     (* u3600 (var-get hourly-raid-exclusion-multiplier))))
                 err-cannot-raid-bad-timestamp)
             (asserts! (fold or
-                (map more-than-zero army) false) err-invalid-army-amount)
+                (map is-more-than-zero army) false) err-invalid-army-amount)
             (asserts! (fold and
-                (map not-less-than-zero (map - (get army player) army)) true) err-invalid-army-amount)
+                (map is-not-less-than-zero (map - (get army player) army)) true) err-invalid-army-amount)
 
             (map-set player-assets {player: tx-sender}
                 (merge player { army: (map - (get army player) army) })
@@ -406,7 +407,13 @@
                 (raid-winner-info
                     (get-raid-winner
                         (get army raid)
-                        (get defender-army (get raid-snapshot raid))))
+                        ;; Defender get a % boost on their defense
+                        (map +
+                            (get defender-army (get raid-snapshot raid))
+                            (return-defenders-boost
+                                (get defender-army (get raid-snapshot raid)))
+                        )
+                ))
             )
 
             (asserts! (>=
@@ -674,30 +681,50 @@
 )
 
 (define-private (return-looted-resources
-    (loot-percentage int) (victim-resource-list (list 5 int))) ;; aqui
+    (loot-percentage int) (victim-resource-list (list 5 int)))
     (list
-        (return-looted-resource-values
+        (return-value-per-percentage
             (unwrap-panic (element-at? victim-resource-list u0)) loot-percentage)
-        (return-looted-resource-values
+        (return-value-per-percentage
             (unwrap-panic (element-at? victim-resource-list u1)) loot-percentage)
-        (return-looted-resource-values
+        (return-value-per-percentage
             (unwrap-panic (element-at? victim-resource-list u2)) loot-percentage)
-        (return-looted-resource-values
+        (return-value-per-percentage
             (unwrap-panic (element-at? victim-resource-list u3)) loot-percentage)
-        (return-looted-resource-values
+        (return-value-per-percentage
             (unwrap-panic (element-at? victim-resource-list u4)) loot-percentage)
     )
 )
 
-(define-private (return-looted-resource-values (resource int) (percentage int))
-    (/ (* resource percentage) 100)
+(define-private (return-defenders-boost (defenders-army (list 3 int)))
+    (list
+        (return-one-if-zero-or-less (return-value-per-percentage
+            (unwrap-panic (element-at? defenders-army u0))
+            (var-get defender-boost-percentage)
+        ))
+        (return-one-if-zero-or-less (return-value-per-percentage
+            (unwrap-panic (element-at? defenders-army u1))
+            (var-get defender-boost-percentage)
+        ))
+        (return-one-if-zero-or-less (return-value-per-percentage
+            (unwrap-panic (element-at? defenders-army u2))
+            (var-get defender-boost-percentage)
+        ))
+    )
 )
 
-(define-private (not-less-than-zero (num int)) (not (< num 0)))
-(define-private (return-zero-if-negative (num int))
-    (if (not (more-than-zero num)) 0 num)
+;; Math helpers
+(define-private (return-value-per-percentage (value int) (percentage int))
+    (/ (* value percentage) 100)
 )
-(define-private (more-than-zero (num int)) (> num 0))
+(define-private (return-zero-if-negative (num int))
+    (if (not (is-more-than-zero num)) 0 num)
+)
+(define-private (return-one-if-zero-or-less (num int))
+    (if (<= num 0) 1 num)
+)
+(define-private (is-more-than-zero (num int)) (> num 0))
+(define-private (is-not-less-than-zero (num int)) (not (< num 0)))
 (define-private (higher-than (compared-list (list 2 int)))
     (>
         (unwrap-panic (element-at? compared-list u0))
