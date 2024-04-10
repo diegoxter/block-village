@@ -107,6 +107,8 @@ describe("campaigns", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
       let playerPawnsStateTracker = 100
 
+      simnet.callPublicFn('rts', 'join-game', [], address2)
+
       for (let index = 0; index < 4; index++) {
         const txResponse: any = (simnet.callPublicFn(
           'rts',
@@ -117,6 +119,7 @@ describe("campaigns", () => {
 
         const playerPawnState = simnet.getMapEntry('rts','player-assets', Cl.tuple({player: Cl.principal(address2)}))
         expect(playerPawnState).toBeSome(Cl.tuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(0),
           resources: Cl.list(
             [Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50), Cl.int(50)]
@@ -146,6 +149,7 @@ describe("campaigns", () => {
 
     it("correctly handles sending/returning expeditions", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      simnet.callPublicFn('rts', 'join-game', [], address2)
 
       const miningPawnState: any = {}
 
@@ -214,6 +218,7 @@ describe("campaigns", () => {
           pawnTracker += 5
 
           expect(newPlayerState).toBeTuple({
+            "is-active": Cl.bool(true),
             "last-raid": Cl.uint(0),
             pawns: Cl.int(pawnTracker),
             resources: Cl.list(resourcesList),
@@ -225,9 +230,11 @@ describe("campaigns", () => {
 
     it("Allows resource refining, respecting due process", () => {
       simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+      simnet.callPublicFn('rts', 'join-game', [], address2)
 
       const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(firstPlayerState).toBeTuple({
+        "is-active": Cl.bool(true),
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
         resources: Cl.list(Array(5).fill(null).map(() => {
@@ -304,6 +311,7 @@ describe("campaigns", () => {
 
       const newPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(newPlayerState).toBeTuple({
+        "is-active": Cl.bool(true),
         "last-raid": Cl.uint(0),
         pawns: Cl.int(90),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50)]),
@@ -324,6 +332,7 @@ describe("campaigns", () => {
 
       const finalPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
       expect(finalPlayerState).toBeTuple({
+        "is-active": Cl.bool(true),
         "last-raid": Cl.uint(0),
         pawns: Cl.int(100),
         resources: Cl.list([Cl.int(50 - woodSent), Cl.int(50 - rockSent), Cl.int(50), Cl.int(50), Cl.int(50+refinedMetal)]),
@@ -346,6 +355,7 @@ describe("campaigns", () => {
     describe("...military activities", () => {
       it("like training, respecting limits", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
 
         const trainingAmount = 6
         const armyArray = [0, 0, 0]
@@ -435,6 +445,7 @@ describe("campaigns", () => {
         const lastPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
 
         expect(lastPlayerState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
@@ -444,6 +455,9 @@ describe("campaigns", () => {
 
       it("and raids!", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
+        simnet.callPublicFn('rts', 'join-game', [], address3)
+
         const trainingAmount = 5
         for (let index = 0; index < 3; index++) { // get some army
           simnet.callPublicFn(
@@ -494,6 +508,7 @@ describe("campaigns", () => {
 
         const remainingArmy = trainingAmount- raidArmyAmount
         expect(invaderState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(0),
           pawns: Cl.int(100 - (trainingAmount * 3)),
           resources: Cl.list([Cl.int(50 - (trainingAmount * 4)), Cl.int(50 - (trainingAmount * 5)), Cl.int(50 - (trainingAmount * 8)), Cl.int(50), Cl.int(50)]),
@@ -504,6 +519,7 @@ describe("campaigns", () => {
 
         const defenderState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address2)).result
         expect(defenderState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(txEventValue),
           pawns: Cl.int(100),
           resources: resourceSnapshot,
@@ -527,6 +543,9 @@ describe("campaigns", () => {
 
       it("raids respect the time limit", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
+        simnet.callPublicFn('rts', 'join-game', [], address3)
+
         const trainingAmount = 5
         for (let index = 0; index < 3; index++) { // get some army
           simnet.callPublicFn(
@@ -615,6 +634,9 @@ describe("campaigns", () => {
 
       it("raids calculate the winner based on unit amount", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
+        simnet.callPublicFn('rts', 'join-game', [], address3)
+
         const trainingAmount = 5
         for (let index = 0; index < 3; index++) { // get some army
           simnet.callPublicFn(
@@ -716,6 +738,9 @@ describe("campaigns", () => {
 
       it("raids calculate the loot - for winners", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
+        simnet.callPublicFn('rts', 'join-game', [], address3)
+
         const trainingAmount = 5
 
         const firstPlayerResources = returnResources()
@@ -775,12 +800,14 @@ describe("campaigns", () => {
         const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
         const secondPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address3)).result
         expect(firstPlayerState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(0),
           resources: returnClList(5, [firstPlayerResources, secondPlayerResources], true),
           pawns: Cl.int(85),
           army: Cl.list(Array(3).fill(Cl.int(trainingAmount)))
         })
         expect(secondPlayerState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(txEventValue),
           resources: returnClList(5, [secondPlayerResources, secondPlayerResources], true, false),
           pawns: Cl.int(94),
@@ -790,6 +817,9 @@ describe("campaigns", () => {
 
       it("raids calculate losers penalty", () => {
         simnet.callPublicFn('rts','create-campaign', [Cl.list(returnCampaignResources())], address1)
+        simnet.callPublicFn('rts', 'join-game', [], address2)
+        simnet.callPublicFn('rts', 'join-game', [], address3)
+
         const firstPlayerTrainingAmount = 1
         const secondPlayerTrainingAmount = firstPlayerTrainingAmount + 3
         const firstPlayerResources = returnResources()
@@ -866,12 +896,14 @@ describe("campaigns", () => {
         const firstPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address2)], address2)).result
         const secondPlayerState = (simnet.callPrivateFn("rts","get-player", [Cl.principal(address3)], address3)).result
         expect(firstPlayerState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(0),
           resources: returnClList(5, firstPlayerResources),
           pawns: Cl.int(100-(firstPlayerTrainingAmount*3)),
           army: Cl.list(Array(3).fill(Cl.int(Math.floor(firstPlayerTrainingAmount / 2))))
         })
         expect(secondPlayerState).toBeTuple({
+          "is-active": Cl.bool(true),
           "last-raid": Cl.uint(txEventValue),
           resources: returnClList(5, secondPlayerResources),
           pawns: Cl.int(100-(secondPlayerTrainingAmount*3)),

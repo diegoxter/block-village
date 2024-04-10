@@ -80,6 +80,7 @@
     ends: uint })
 
 (define-map player-assets { player: principal } {
+    is-active: bool,
     last-raid: uint,
     resources: (list 5 int),  ;; wood rock food gold metal
     pawns: int,
@@ -154,6 +155,21 @@
 
         (ok true)
 ))
+
+(define-public (join-game)
+    (begin
+    (asserts! (not (is-player-active tx-sender)) err-invalid-player)
+        (map-set player-assets {player: tx-sender}
+        {
+            is-active: true,
+            last-raid: u0,
+            resources: (list 50 50 50 50 50),
+            pawns: 100,
+            army: (list 0 0 0)
+        })
+
+        (ok true))
+)
 
 (define-public (send-gathering-expedition (assigned-pawns int) (resource-to-gather uint))
     (begin
@@ -361,6 +377,8 @@
 ;; #[allow(unchecked_data)]
 (define-public (send-raid (victim principal) (army (list 3 int)))
         (let ((player (get-player tx-sender)))
+            (asserts! (is-player-active victim) err-invalid-player)
+
             (asserts!
                 (or
                     (is-eq (get timestamp (get-raid tx-sender victim)) u0)
@@ -543,9 +561,10 @@
 ;; private functions
 (define-private (get-player (player principal))
     (default-to {
+        is-active: false,
         last-raid: u0,
-        resources: (list 50 50 50 50 50), ;; wood rock food gold metal
-        pawns: 100,
+        resources: (list 0 0 0 0 0), ;; wood rock food gold metal
+        pawns: 0,
         army: (list 0 0 0) ;; soldiers / archers / cavalry
     }
         (map-get? player-assets {player: player})
@@ -583,6 +602,11 @@
         )
 (ok true)))
 
+(define-private (is-player-active (player principal))
+    (get is-active (get-player tx-sender))
+)
+
+;; Resource helpers
 (define-private (return-pawns-and-resource-gathering (r-id uint) (e-id uint))
     (map-set player-assets {player: tx-sender}
         (merge (get-player tx-sender) {
@@ -667,7 +691,7 @@
 ))
 
 
-
+;; Loot helpers
 (define-private (return-success-uint (base-int int))
     (if (and (> base-int -5) (<= base-int -1)) u1
         (if (and (<= base-int -5) (> base-int -10)) u2
