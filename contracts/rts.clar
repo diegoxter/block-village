@@ -374,9 +374,9 @@
     )
 ))
 
-;; #[allow(unchecked_data)]
 (define-public (send-raid (victim principal) (army (list 3 int)))
         (let ((player (get-player tx-sender)))
+            (asserts! (not (is-eq victim tx-sender)) err-invalid-player)
             (asserts! (is-player-active victim) err-invalid-player)
 
             (asserts!
